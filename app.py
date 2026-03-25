@@ -6,7 +6,7 @@ import datetime # 날짜와 시간을 다루는 파이썬 기본 도구 추가!
 
 st.set_page_config(page_title="프롭테크 실거래가 분석기", page_icon="🏠", layout="wide")
 
-st.title("🏠 전월세 실거래가 ")
+st.title("🏠 전월세 실거래")
 st.write("버튼 하나로 원하는 동네와 날짜의 시장 흐름을 한눈에 파악하세요! 😎")
 
 # 🎯 [중요] API 키 입력!
