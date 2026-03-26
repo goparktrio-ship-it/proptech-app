@@ -2,132 +2,177 @@ import streamlit as st
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
-import datetime # 날짜와 시간을 다루는 파이썬 기본 도구 추가!
 
-st.set_page_config(page_title="프롭테크 실거래가 분석기", page_icon="🏠", layout="wide")
+# ==========================================
+# 1. 환경 설정 및 상수 정의
+# ==========================================
+# 🚨 본인의 '일반 인증키(Encoding)'를 여기에 쏙 넣어주세요!
+SERVICE_KEY = "6185985620d6525b8af9628d96468b183acefb64c58135f6cae9fc04f844fe6a"
 
-st.title("🏠전월세 실거래")
-st.write("버튼 하나로 원하는 동네와 날짜의 시장 흐름을 한눈에 파악하세요! 😎")
-
-# 🎯 [중요] API 키 입력!
-API_KEY = '6185985620d6525b8af9628d96468b183acefb64c58135f6cae9fc04f844fe6a'
-
-# 1. 🗺️ 3단계 지역 데이터 사전 (송파구 추가 완료!)
-region_data = {
-    "경기도": {
-        "용인시 수지구": {
-            "code": "41465", 
-            "dongs": ["전체보기", "고기동", "동천동", "상현동", "성복동", "신봉동", "죽전동", "풍덕천동"]
-        },
-        "성남시 분당구": {
-            "code": "41135",
-            "dongs": ["전체보기", "구미동", "궁내동", "금곡동", "대장동", "백현동", "분당동", "삼평동", "서현동", "수내동", "야탑동", "운중동", "율동", "이매동", "정자동", "판교동", "하산운동"]
-        }
-    },
-    "서울특별시": {
-        "송파구": {
-            "code": "11710",
-            "dongs": ["전체보기", "가락동", "거여동", "마천동", "문정동", "방이동", "삼전동", "석촌동", "송파동", "신천동", "오금동", "잠실동", "장지동", "풍납동"]
-        },
-        "강남구": {
-            "code": "11680",
-            "dongs": ["전체보기", "개포동", "논현동", "대치동", "도곡동", "삼성동", "세곡동", "수서동", "신사동", "압구정동", "역삼동", "율현동", "일원동", "자곡동", "청담동"]
-        }
-    }
+# 국토부 최신 공식 API 주소 (매매, 전월세)
+API_URLS = {
+    "매매": "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade",
+    "전월세": "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent"
 }
 
-# 2. 🎛️ 화면 구성: 지역 선택 (3칸)
-st.subheader("📍 지역 선택")
-col1, col2, col3 = st.columns(3)
+# 유저가 선택하기 쉬운 한글 지역구와 법정동 코드 사전 (수지구, 과천시 포함 완벽 세팅!)
+GU_CODES = {
+    "송파구": "11710", "강남구": "11680", "서초구": "11650",
+    "강동구": "11740", "마포구": "11440", "용산구": "11170",
+    "성동구": "11200", "과천시": "41290", "수지구": "41465",
+    "분당구": "41135"
+}
 
-with col1:
-    selected_sido = st.selectbox("🌍 시/도를 선택하세요", list(region_data.keys()))
+# ==========================================
+# 2. 데이터 수집 엔진 (Back-end 로직)
+# ==========================================
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_real_estate_data(category, lawd_cd, deal_ym, service_key):
+    url = API_URLS.get(category)
+    #params = {'serviceKey': service_key, 'LAWD_CD': lawd_cd, 'DEAL_YMD': deal_ym}
+    # [기존 코드] 10개만 주던 소심한 요청서
+    # params = {'serviceKey': service_key, 'LAWD_CD': lawd_cd, 'DEAL_YMD': deal_ym}
 
-with col2:
-    selected_sigungu = st.selectbox("🏠 시/군/구를 선택하세요", list(region_data[selected_sido].keys()))
-
-with col3:
-    dong_list = region_data[selected_sido][selected_sigungu]["dongs"]
-    selected_dong = st.selectbox("🏘️ 상세 '동'을 선택하세요", dong_list)
-
-lawd_cd = region_data[selected_sido][selected_sigungu]["code"]
-
-st.markdown("---") 
-
-# 3. 🗓️ 화면 구성: 날짜 선택 (2칸)
-st.subheader("🗓️ 조회 연월 선택")
-now = datetime.datetime.now()
-current_year = now.year
-
-date_col1, date_col2 = st.columns(2)
-
-with date_col1:
-    # 올해부터 2015년까지 역순으로 선택 가능하게!
-    selected_year = st.selectbox("연도", range(current_year, 2014, -1))
-
-with date_col2:
-    # 1월부터 12월까지
-    selected_month = st.selectbox("월", range(1, 13), index=now.month - 1)
-
-# API에 보낼 YYYYMM 형태로 합치기 (예: 2026년 2월 -> "202602")
-# :02d는 한 자리 숫자(예: 2)를 두 자리(예: 02)로 맞춰주는 마법이에요!
-deal_ymd = f"{selected_year}{selected_month:02d}"
-
-st.markdown("---")
-
-# 4. 🚀 분석 시작 버튼 (버튼 이름에 선택한 연월과 동네가 다 나오게 업데이트!)
-button_text = f"{selected_year}년 {selected_month}월 {selected_sigungu} {selected_dong} 분석 시작! 🚀"
-
-if st.button(button_text, use_container_width=True):
-    
-    st.info("데이터를 열심히 수집하고 분석하는 중입니다... 잠시만요! 📡")
-    
-    url = 'http://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent'
+    # [수정할 코드] 🚨 잔말 말고 9999개 다 내놓으라는 터프한 요청서!
     params = {
-        'serviceKey': API_KEY,
-        'LAWD_CD': lawd_cd,
-        'DEAL_YMD': deal_ymd # 🔥 이제 고정된 날짜가 아니라 우리가 선택한 날짜가 들어갑니다!
+        'serviceKey': service_key, 
+        'LAWD_CD': lawd_cd, 
+        'DEAL_YMD': deal_ym,
+        'numOfRows': '9999',  # 👈 핵심! 한 번에 최대 9999건까지 다 가져옵니다.
+        'pageNo': '1'         # 1페이지부터 시작!
     }
-    
-    response = requests.get(url, params=params)
-    
-    if response.status_code == 200:
-        root = ET.fromstring(response.text)
-        items = root.findall('.//item')
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
         
-        if len(items) > 0:
-            data_list = []
-            for item in items:
-                dong = item.find('umdNm').text if item.find('umdNm') is not None else ''
-                apt_name = item.find('aptNm').text if item.find('aptNm') is not None else '이름없음'
-                deposit = item.find('deposit').text.strip() if item.find('deposit') is not None else '0'
-                monthly = item.find('monthlyRent').text.strip() if item.find('monthlyRent') is not None else '0'
-                floor = item.find('floor').text if item.find('floor') is not None else ''
-                area_m2 = item.find('excluUseAr').text if item.find('excluUseAr') is not None else '0'
-                
-                data_list.append({
-                    '법정동': dong.strip(),
-                    '아파트명': apt_name,
-                    '전용면적(㎡)': float(area_m2),
-                    '보증금(만원)': deposit,
-                    '월세(만원)': monthly,
-                    '층수': floor
-                })
-                
-            df = pd.DataFrame(data_list)
-            df['평수(평)'] = round(df['전용면적(㎡)'] / 3.3058, 1)
+        root = ET.fromstring(response.content)
+        
+        err_msg = root.find('.//returnAuthMsg')
+        if err_msg is not None and err_msg.text:
+            return pd.DataFrame(), f"공공데이터 API 오류: {err_msg.text}"
+
+        items = root.findall('.//item')
+        if not items:
+            return pd.DataFrame(), "해당 조건의 거래 데이터가 없습니다."
+
+        data_list = [{child.tag: child.text for child in item} for item in items]
+        return pd.DataFrame(data_list), None
+
+    except requests.exceptions.Timeout:
+        return pd.DataFrame(), "서버 응답 시간이 초과되었습니다. (네트워크 지연)"
+    except requests.exceptions.RequestException as e:
+        return pd.DataFrame(), f"네트워크 연결에 실패했습니다: {e}"
+    except ET.ParseError:
+        return pd.DataFrame(), "데이터 형식이 잘못되었습니다. (서버 응답 오류)"
+    except Exception as e:
+        return pd.DataFrame(), f"예상치 못한 오류가 발생했습니다: {e}"
+
+# ==========================================
+# 3. 화면 구성 및 실행 (Front-end 로직)
+# ==========================================
+def main():
+    st.set_page_config(page_title="프롭테크 통합 대시보드", page_icon="🏠", layout="wide")
+    st.title("🏠 실거래가 통합 조회 서비스")
+
+    # --- 사이드바: 기본 검색 조건 ---
+    with st.sidebar:
+        st.header("🔍 검색 조건 설정")
+        selected_gu = st.selectbox("지역구 선택", list(GU_CODES.keys()))
+        lawd_cd = GU_CODES[selected_gu]
+        
+        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202401")
+        category = st.radio("거래 유형 선택", ["매매", "전월세"])
+        submit_btn = st.button("데이터 분석 시작 🚀")
+
+    # --- 데이터 수집 및 세션 저장 ---
+    if submit_btn:
+        with st.spinner(f'{selected_gu} {category} 데이터를 안전하게 가져오는 중...'):
+            df, error_msg = fetch_real_estate_data(category, lawd_cd, deal_ym, SERVICE_KEY)
             
-            if selected_dong != "전체보기":
-                df = df[df['법정동'] == selected_dong]
+            if error_msg:
+                st.error(error_msg)
+                st.session_state['data'] = None 
+            elif not df.empty:
+                st.session_state['data'] = df
+                st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'cat': category}
+                st.success("✅ 데이터 조회를 완료했습니다!")
+
+    # --- 화면에 데이터와 동 필터 그리기 ---
+    if 'data' in st.session_state and st.session_state['data'] is not None:
+        df = st.session_state['data'].copy()
+        info = st.session_state['info']
+        
+        # 1. 영문 컬럼명을 깔끔한 한글로 번역
+        if info['cat'] == "매매":
+            target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
+            exist_cols = [c for c in target_cols if c in df.columns]
+            df = df[exist_cols]
+            df = df.rename(columns={
+                'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 
+                'excluUseAr': '면적(㎡)', 'floor': '층', 
+                'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'
+            })
+            price_col = '매매가(만원)' 
             
-            if len(df) > 0:
-                st.success("분석 완료! 결과를 확인해 보세요. 🎉")
-                st.subheader(f"📌 {selected_year}년 {selected_month}월 {selected_sigungu} {selected_dong} 실거래가 내역 (총 {len(df)}건)")
-                st.dataframe(df, use_container_width=True)
-            else:
-                st.warning(f"{selected_year}년 {selected_month}월에는 {selected_dong}에 신고된 거래가 없네요! 텅~ 🍃")
-                
         else:
-            st.warning(f"{selected_year}년 {selected_month}월 데이터가 아직 국토부에 업데이트되지 않았거나 거래가 없습니다.")
-    else:
-        st.error(f"🚨 연결 실패! (상태 코드: {response.status_code})")
+            target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
+            exist_cols = [c for c in target_cols if c in df.columns]
+            df = df[exist_cols]
+            df = df.rename(columns={
+                'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 
+                'excluUseAr': '면적(㎡)', 'floor': '층', 
+                'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'
+            })
+            price_col = '보증금(만원)' 
+
+        # 2. 메인 화면: 상세 '동' 필터링
+        st.markdown("---")
+        st.subheader(f"🏘️ {info['gu']} 상세 동 필터링 ({info['ym']} / {info['cat']})")
+        
+        dong_list = sorted(df['법정동'].dropna().unique().tolist())
+        selected_dong = st.selectbox("원하시는 '동'을 선택하세요", ["전체보기"] + dong_list)
+        
+        # 특정 동을 골랐다면 그 데이터만 쏙 필터링
+        if selected_dong != "전체보기":
+            df = df[df['법정동'] == selected_dong]
+        
+        # 🚨 [완벽하게 업그레이드된 하이라이트!] 단지명 포함 통계판 🚨
+        if price_col in df.columns:
+            # 원본 데이터 훼손 없이, 계산만을 위한 '임시 숫자 가격표(num_price)'를 만듭니다.
+            temp_df = df.copy()
+            temp_df['num_price'] = pd.to_numeric(temp_df[price_col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+            
+            # 가격이 정상적으로 변환된 데이터만 추려냅니다.
+            valid_df = temp_df.dropna(subset=['num_price'])
+            
+            # 3등분으로 화면을 쪼개서 통계판 만들기
+            col1, col2, col3 = st.columns(3)
+            col1.metric("총 거래건수", f"{len(df)} 건")
+            
+            if not valid_df.empty:
+                # 파이썬의 필살기 idxmax(), idxmin() : 가장 큰/작은 값이 있는 '줄(행 번호)'을 찾아냅니다!
+                max_row = valid_df.loc[valid_df['num_price'].idxmax()]
+                min_row = valid_df.loc[valid_df['num_price'].idxmin()]
+                
+                max_p = int(max_row['num_price'])
+                max_apt = max_row['아파트명'] # 찾은 줄에서 아파트 이름 훔쳐오기!
+                
+                min_p = int(min_row['num_price'])
+                min_apt = min_row['아파트명']
+                
+                # 아파트 이름표에 이모지(🏆, 📉)까지 더해서 간지나게 출력!
+                col2.metric(f"최고가 🏆 ({max_apt})", f"{max_p:,} 만원")
+                col3.metric(f"최저가 📉 ({min_apt})", f"{min_p:,} 만원")
+            else:
+                col2.metric("최고가", "데이터 없음")
+                col3.metric("최저가", "데이터 없음")
+
+        # 3. 최종 표 출력
+        st.markdown("<br>", unsafe_allow_html=True) 
+        st.dataframe(df, use_container_width=True)
+
+if __name__ == "__main__":
+    main()
+
