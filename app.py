@@ -70,21 +70,28 @@ def fetch_real_estate_data(category, lawd_cd, deal_ym, service_key):
         return pd.DataFrame(), f"예상치 못한 오류가 발생했습니다: {e}"
 
 # ==========================================
-# 3. 화면 구성 및 실행 (Front-end 로직)
+# 3. 화면 구성 및 실행 (Front-end 로직) - 모바일 최적화 버전 📱
 # ==========================================
 def main():
     st.set_page_config(page_title="프롭테크 통합 대시보드", page_icon="🏠", layout="wide")
     st.title("🏠 실거래가 통합 조회 서비스")
 
-    # --- 사이드바: 기본 검색 조건 ---
-    with st.sidebar:
-        st.header("🔍 검색 조건 설정")
+    # 🚨 [변경됨] 귀찮은 사이드바를 없애고 메인 화면으로 당당하게 꺼냈습니다!
+    st.markdown("#### 🔍 검색 조건 설정")
+    
+    # 모바일 화면을 알뜰하게 쓰기 위해 입력칸을 두 칸으로 쪼갭니다.
+    col1, col2 = st.columns(2)
+    with col1:
         selected_gu = st.selectbox("지역구 선택", list(GU_CODES.keys()))
         lawd_cd = GU_CODES[selected_gu]
+    with col2:
+        deal_ym = st.text_input("조회 년월", value="202401")
         
-        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202401")
-        category = st.radio("거래 유형 선택", ["매매", "전월세"])
-        submit_btn = st.button("데이터 분석 시작 🚀")
+    # 라디오 버튼도 가로로 눕혀서 공간을 절약합니다.
+    category = st.radio("거래 유형 선택", ["매매", "전월세"], horizontal=True)
+    
+    # 버튼을 큼지막하게, 화면 너비에 꽉 차게 만듭니다! (모바일 터치 최적화)
+    submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
 
     # --- 데이터 수집 및 세션 저장 ---
     if submit_btn:
@@ -104,7 +111,7 @@ def main():
         df = st.session_state['data'].copy()
         info = st.session_state['info']
         
-        # 1. 영문 컬럼명을 깔끔한 한글로 번역
+        # (이하 영문->한글 번역 로직은 완전히 동일합니다!)
         if info['cat'] == "매매":
             target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
             exist_cols = [c for c in target_cols if c in df.columns]
@@ -127,52 +134,43 @@ def main():
             })
             price_col = '보증금(만원)' 
 
-        # 2. 메인 화면: 상세 '동' 필터링
         st.markdown("---")
         st.subheader(f"🏘️ {info['gu']} 상세 동 필터링 ({info['ym']} / {info['cat']})")
         
         dong_list = sorted(df['법정동'].dropna().unique().tolist())
         selected_dong = st.selectbox("원하시는 '동'을 선택하세요", ["전체보기"] + dong_list)
         
-        # 특정 동을 골랐다면 그 데이터만 쏙 필터링
         if selected_dong != "전체보기":
             df = df[df['법정동'] == selected_dong]
         
-        # 🚨 [완벽하게 업그레이드된 하이라이트!] 단지명 포함 통계판 🚨
         if price_col in df.columns:
-            # 원본 데이터 훼손 없이, 계산만을 위한 '임시 숫자 가격표(num_price)'를 만듭니다.
             temp_df = df.copy()
             temp_df['num_price'] = pd.to_numeric(temp_df[price_col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
-            
-            # 가격이 정상적으로 변환된 데이터만 추려냅니다.
             valid_df = temp_df.dropna(subset=['num_price'])
             
-            # 3등분으로 화면을 쪼개서 통계판 만들기
             col1, col2, col3 = st.columns(3)
             col1.metric("총 거래건수", f"{len(df)} 건")
             
             if not valid_df.empty:
-                # 파이썬의 필살기 idxmax(), idxmin() : 가장 큰/작은 값이 있는 '줄(행 번호)'을 찾아냅니다!
                 max_row = valid_df.loc[valid_df['num_price'].idxmax()]
                 min_row = valid_df.loc[valid_df['num_price'].idxmin()]
                 
                 max_p = int(max_row['num_price'])
-                max_apt = max_row['아파트명'] # 찾은 줄에서 아파트 이름 훔쳐오기!
+                max_apt = max_row['아파트명']
                 
                 min_p = int(min_row['num_price'])
                 min_apt = min_row['아파트명']
                 
-                # 아파트 이름표에 이모지(🏆, 📉)까지 더해서 간지나게 출력!
                 col2.metric(f"최고가 🏆 ({max_apt})", f"{max_p:,} 만원")
                 col3.metric(f"최저가 📉 ({min_apt})", f"{min_p:,} 만원")
             else:
                 col2.metric("최고가", "데이터 없음")
                 col3.metric("최저가", "데이터 없음")
 
-        # 3. 최종 표 출력
         st.markdown("<br>", unsafe_allow_html=True) 
         st.dataframe(df, use_container_width=True)
 
 if __name__ == "__main__":
     main()
+    
 
