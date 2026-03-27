@@ -250,29 +250,27 @@ def run_tax_app():
 # 5. 메인 네비게이션 (상단 탭으로 모바일 가독성 극대화!)
 # ==========================================
 def main():
-    # 🎨 한 차원 더 진화한 CSS 마법: 탭을 진짜 '버튼'처럼 직관적으로 만듭니다!
+    # 🚨 [여기 추가!] 앱 최상단에 들어갈 멋진 대문(타이틀)과 부제목입니다.
+    st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555555; font-size: 16px;'>실거래가 분석부터 취득세 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True) # 타이틀과 탭 사이 살짝 띄우기
+
+    # 🎨 한 차원 더 진화한 CSS 마법 (입체형 버튼)
     st.markdown("""
     <style>
-        /* 1. 탭들 사이의 간격을 살짝 띄워줍니다 */
-        div[data-baseweb="tab-list"] {
-            gap: 10px; 
-        }
-        
-        /* 2. 기본 탭 디자인 (선택 안 된 상태) */
+        div[data-baseweb="tab-list"] { gap: 10px; }
         button[data-baseweb="tab"] {
             font-size: 18px !important;
             font-weight: bold !important;
-            background-color: #f0f2f6 !important; /* 연한 회색 배경을 깔아 버튼처럼 보이게 */
-            border-radius: 12px 12px 0px 0px !important; /* 위쪽 모서리를 둥글게 (폴더 모양) */
+            background-color: #f0f2f6 !important;
+            border-radius: 12px 12px 0px 0px !important;
             padding: 12px 20px !important;
-            color: #555555 !important; /* 글씨는 진한 회색 */
+            color: #555555 !important;
             border-bottom: none !important;
         }
-
-        /* 3. 유저가 선택한 탭 디자인 (활성화 상태) - 눈에 확 띄게! */
         button[aria-selected="true"] {
-            background-color: #FF4B4B !important; /* 스트림릿의 예쁜 포인트 컬러(레드) */
-            color: white !important; /* 탭 선택 시 글씨를 흰색으로 반전! */
+            background-color: #FF4B4B !important;
+            color: white !important;
         }
     </style>
     """, unsafe_allow_html=True)
