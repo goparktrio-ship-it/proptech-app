@@ -250,13 +250,29 @@ def run_tax_app():
 # 5. 메인 네비게이션 (상단 탭으로 모바일 가독성 극대화!)
 # ==========================================
 def main():
-    # 🎨 CSS 마법: 탭 버튼 글씨 크기와 굵기를 강제로 키웁니다!
+    # 🎨 한 차원 더 진화한 CSS 마법: 탭을 진짜 '버튼'처럼 직관적으로 만듭니다!
     st.markdown("""
     <style>
+        /* 1. 탭들 사이의 간격을 살짝 띄워줍니다 */
+        div[data-baseweb="tab-list"] {
+            gap: 10px; 
+        }
+        
+        /* 2. 기본 탭 디자인 (선택 안 된 상태) */
         button[data-baseweb="tab"] {
-            font-size: 20px !important;
+            font-size: 18px !important;
             font-weight: bold !important;
-            padding-bottom: 10px !important;
+            background-color: #f0f2f6 !important; /* 연한 회색 배경을 깔아 버튼처럼 보이게 */
+            border-radius: 12px 12px 0px 0px !important; /* 위쪽 모서리를 둥글게 (폴더 모양) */
+            padding: 12px 20px !important;
+            color: #555555 !important; /* 글씨는 진한 회색 */
+            border-bottom: none !important;
+        }
+
+        /* 3. 유저가 선택한 탭 디자인 (활성화 상태) - 눈에 확 띄게! */
+        button[aria-selected="true"] {
+            background-color: #FF4B4B !important; /* 스트림릿의 예쁜 포인트 컬러(레드) */
+            color: white !important; /* 탭 선택 시 글씨를 흰색으로 반전! */
         }
     </style>
     """, unsafe_allow_html=True)
@@ -274,3 +290,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
