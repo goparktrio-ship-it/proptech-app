@@ -24,7 +24,7 @@ GU_CODES = {
     "하남시": "41450", "분당구": "41135"
 }
 
-# 2025년 10월 지정 최신 조정대상지역
+# 2025년 10월 지정 최신 조정대상지역 (2026년 기준)
 REGULATED_AREAS = [
     "서울특별시 (25개 구 전 지역)", "경기 과천시", "경기 광명시", "경기 하남시", "경기 의왕시",
     "경기 성남시 (분당/수정/중원구)", "경기 수원시 (영통/장안/팔달구)", "경기 안양시 (동안구)", "경기 용인시 (수지구)"
@@ -103,7 +103,7 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
 # 3. 화면 구성 모듈 (앱 1: 실거래가)
 # ==========================================
 def run_real_estate_app():
-    st.title("🏠 실거래가 통합 조회 서비스")
+    st.header("🏠 실거래가 조회")
     st.markdown("#### 🔍 검색 조건 설정")
     
     col1, col2 = st.columns(2)
@@ -189,7 +189,7 @@ def run_real_estate_app():
 # 4. 화면 구성 모듈 (앱 2: 세금 계산기)
 # ==========================================
 def run_tax_app():
-    st.title("💰 아파트 취득세 스마트 계산기")
+    st.header("💰 주택 취득세 계산")
     st.info("📌 **적용 기준: 2025년 10월 대책 반영 (2026년 최신 기준)**")
     st.markdown("매수 지역과 주택 수만 선택하세요. **최신 규제지역 여부와 중과세율을 앱이 자동으로 판단**합니다.")
     st.markdown("---")
@@ -214,7 +214,7 @@ def run_tax_app():
         if is_regulated:
             st.error(f"🚨 **{selected_area}**는 현재 **조정대상지역**입니다.")
             if homes_count == "일시적 2주택":
-                st.info("💡 **[일시적 2주택 혜택]** 조정지역이더라도 기한 내 기존 주택 처분 조건으로 **기본세율(1~3%)**이 적용됩니다!")
+                st.info("💡 **[일시적 2주택 혜택]** 기한 내 기존 주택 처분 조건으로 **기본세율(1~3%)**이 적용됩니다!")
             elif homes_count in ["2주택", "3주택"]:
                 st.warning("⚠️ 다주택자 조정지역 중과세율이 무겁게 적용됩니다.")
         else:
@@ -250,22 +250,27 @@ def run_tax_app():
 # 5. 메인 네비게이션 (상단 탭으로 모바일 가독성 극대화!)
 # ==========================================
 def main():
-    # 🚨 숨겨지는 사이드바(sidebar)를 없애고, 화면 맨 위에 당당하게 탭(Tabs)을 나란히 배치합니다!
-    tab1, tab2 = st.tabs(["🏠 실거래가 조회", "💰 취득세 계산기"])
+    # 🎨 CSS 마법: 탭 버튼 글씨 크기와 굵기를 강제로 키웁니다!
+    st.markdown("""
+    <style>
+        button[data-baseweb="tab"] {
+            font-size: 20px !important;
+            font-weight: bold !important;
+            padding-bottom: 10px !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["🏠 실거래가 조회", "💰 주택 취득세 계산"])
     
-    # 첫 번째 탭을 누르면 실거래가 화면이 나옵니다.
     with tab1:
         run_real_estate_app()
         
-    # 두 번째 탭을 누르면 세금 계산기 화면이 나옵니다.
     with tab2:
         run_tax_app()
         
-    # 화면 맨 밑에 공통 안내문구 고정
     st.markdown("---")
     st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 계산은 세무 전문가와 상담하시기 바랍니다.")
 
 if __name__ == "__main__":
     main()
-    
-
