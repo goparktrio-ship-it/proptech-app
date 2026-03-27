@@ -250,16 +250,16 @@ def run_tax_app():
 # 5. 메인 네비게이션 (상단 탭으로 모바일 가독성 극대화!)
 # ==========================================
 def main():
-    # 🎨 CSS 마법 총동원: 상단 여백 제거 + 입체형 버튼 탭
+    # 🎨 CSS 마법: 윗통수 잘림 방지용 '안전 여백' 적용!
     st.markdown("""
     <style>
-        /* 🚨 1. 화면 맨 위 쓸데없는 태평양 여백을 확 줄여버립니다! */
+        /* 🚨 1. 너무 바짝 붙이지 않고 숨 쉴 공간(3rem)을 줍니다! */
         .block-container {
-            padding-top: 1.5rem !important; /* 숫자를 줄일수록 더 위로 바짝 붙습니다 */
+            padding-top: 3rem !important; 
             padding-bottom: 1rem !important;
         }
         
-        /* 2. 기존 탭 버튼 디자인 유지 */
+        /* 2. 입체형 버튼 탭 디자인 유지 */
         div[data-baseweb="tab-list"] { gap: 10px; }
         button[data-baseweb="tab"] {
             font-size: 18px !important;
@@ -277,10 +277,9 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # 🚨 대문 제목 자체의 위쪽 마진도 강제로 0으로 깎아버립니다!
-    st.markdown("<h1 style='text-align: center; color: #1E3A8A; margin-top: -20px;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #555555; font-size: 16px;'>실거래가 분석부터 취득세 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    # 🚨 대문 제목: 마이너스(-20px)로 멱살 잡던 걸 풀고(0px) 안전하게 내려놨습니다.
+    st.markdown("<h1 style='text-align: center; color: #1E3A8A; margin-top: 0px;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555555; font-size: 16px; margin-bottom: 20px;'>실거래가 분석부터 취득세 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs(["🏠 실거래가 조회", "💰 주택 취득세 계산"])
     
@@ -295,5 +294,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
     
     
