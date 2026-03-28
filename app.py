@@ -112,7 +112,7 @@ def run_real_estate_app():
         selected_gu = st.selectbox("지역구 선택", list(GU_CODES.keys()))
         lawd_cd = GU_CODES[selected_gu]
     with col2:
-        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202602")
+        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202603")
         
     category = st.radio("분석 모드 선택", ["매매 실거래", "전월세 실거래", "🔥 갭투자 전세가율 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
