@@ -101,10 +101,10 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
     return acquisition_tax, edu_tax, rural_tax, total_tax, tax_rate
 
 # ==========================================
-# 3. 화면 구성 모듈 (앱 1: 실거래가)
+# 3. 화면 구성 모듈 (앱 1: 실거래가 및 전세가율)
 # ==========================================
 def run_real_estate_app():
-    st.header("🏠 실거래가 조회")
+    st.header("🏠 실거래가 및 갭투자 분석")
     st.markdown("#### 🔍 검색 조건 설정")
     
     col1, col2 = st.columns(2)
@@ -112,80 +112,167 @@ def run_real_estate_app():
         selected_gu = st.selectbox("지역구 선택", list(GU_CODES.keys()))
         lawd_cd = GU_CODES[selected_gu]
     with col2:
-        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202401")
+        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202602")
         
-    category = st.radio("거래 유형 선택", ["매매", "전월세"], horizontal=True)
+    category = st.radio("분석 모드 선택", ["매매 실거래", "전월세 실거래", "🔥 갭투자 전세가율 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
 
     if submit_btn:
-        with st.spinner(f'{selected_gu} {category} 데이터를 가져오는 중...'):
-            df, error_msg = fetch_real_estate_data(category, lawd_cd, deal_ym, SERVICE_KEY)
-            
-            if error_msg:
-                st.error(error_msg)
-                st.session_state['data'] = None 
-            elif not df.empty:
-                st.session_state['data'] = df
-                st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'cat': category}
-                st.success("✅ 데이터 조회를 완료했습니다!")
+        if category in ["매매 실거래", "전월세 실거래"]:
+            api_cat = "매매" if category == "매매 실거래" else "전월세"
+            with st.spinner(f'{selected_gu} {api_cat} 데이터를 가져오는 중...'):
+                df, error_msg = fetch_real_estate_data(api_cat, lawd_cd, deal_ym, SERVICE_KEY)
+                
+                if error_msg:
+                    st.error(error_msg)
+                    st.session_state['info'] = None 
+                elif not df.empty:
+                    st.session_state['data'] = df
+                    st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'cat': api_cat, 'mode': '단순조회'}
+                    st.success("✅ 데이터 조회를 완료했습니다!")
 
-    if 'data' in st.session_state and st.session_state['data'] is not None:
-        df = st.session_state['data'].copy()
+        elif category == "🔥 갭투자 전세가율 분석":
+            with st.spinner(f'{selected_gu} 매매 및 전세 데이터를 융합 분석 중...'):
+                df_trade, err_trade = fetch_real_estate_data("매매", lawd_cd, deal_ym, SERVICE_KEY)
+                df_rent, err_rent = fetch_real_estate_data("전월세", lawd_cd, deal_ym, SERVICE_KEY)
+                
+                if err_trade or err_rent:
+                    st.error(f"데이터를 불러오지 못했습니다. (매매: {err_trade} / 전월세: {err_rent})")
+                    st.session_state['info'] = None
+                else:
+                    st.session_state['data_trade'] = df_trade
+                    st.session_state['data_rent'] = df_rent
+                    st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
+                    st.success("✅ 매매/전세 데이터 융합 및 전세가율 계산 완료!")
+
+    # ==============================
+    # 📊 데이터 화면 출력 로직
+    # ==============================
+    if 'info' in st.session_state and st.session_state['info'] is not None:
         info = st.session_state['info']
         
-        if info['cat'] == "매매":
-            target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
-            exist_cols = [c for c in target_cols if c in df.columns]
-            df = df[exist_cols]
-            df = df.rename(columns={
-                'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 
-                'excluUseAr': '면적(㎡)', 'floor': '층', 
-                'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'
-            })
-            price_col = '매매가(만원)' 
-        else:
-            target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
-            exist_cols = [c for c in target_cols if c in df.columns]
-            df = df[exist_cols]
-            df = df.rename(columns={
-                'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 
-                'excluUseAr': '면적(㎡)', 'floor': '층', 
-                'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'
-            })
-            price_col = '보증금(만원)' 
-
-        st.markdown("---")
-        st.subheader(f"🏘️ {info['gu']} 상세 동 필터링 ({info['ym']} / {info['cat']})")
-        
-        dong_list = sorted(df['법정동'].dropna().unique().tolist())
-        selected_dong = st.selectbox("원하시는 '동'을 선택하세요", ["전체보기"] + dong_list)
-        
-        if selected_dong != "전체보기":
-            df = df[df['법정동'] == selected_dong]
-        
-        if price_col in df.columns:
-            temp_df = df.copy()
-            temp_df['num_price'] = pd.to_numeric(temp_df[price_col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
-            valid_df = temp_df.dropna(subset=['num_price'])
+        # --- 1. 단순 실거래가 조회 모드 ---
+        if info['mode'] == '단순조회' and 'data' in st.session_state:
+            df = st.session_state['data'].copy()
             
-            col1, col2, col3 = st.columns(3)
-            col1.metric("총 거래건수", f"{len(df)} 건")
-            
-            if not valid_df.empty:
-                max_row = valid_df.loc[valid_df['num_price'].idxmax()]
-                min_row = valid_df.loc[valid_df['num_price'].idxmin()]
-                max_p, max_apt = int(max_row['num_price']), max_row['아파트명']
-                min_p, min_apt = int(min_row['num_price']), min_row['아파트명']
-                
-                col2.metric(f"최고가 🏆 ({max_apt})", f"{max_p:,} 만원")
-                col3.metric(f"최저가 📉 ({min_apt})", f"{min_p:,} 만원")
+            if info['cat'] == "매매":
+                target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
+                exist_cols = [c for c in target_cols if c in df.columns]
+                df = df[exist_cols]
+                df = df.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
+                price_col = '매매가(만원)' 
             else:
-                col2.metric("최고가", "데이터 없음")
-                col3.metric("최저가", "데이터 없음")
+                target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
+                exist_cols = [c for c in target_cols if c in df.columns]
+                df = df[exist_cols]
+                df = df.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
+                price_col = '보증금(만원)' 
 
-        st.markdown("<br>", unsafe_allow_html=True) 
-        st.dataframe(df, use_container_width=True)
+            st.markdown("---")
+            st.subheader(f"🏘️ {info['gu']} 상세 동 필터링 ({info['ym']} / {info['cat']})")
+            
+            dong_list = sorted(df['법정동'].dropna().unique().tolist())
+            selected_dong = st.selectbox("원하시는 '동'을 선택하세요", ["전체보기"] + dong_list, key="simple_dong")
+            
+            if selected_dong != "전체보기":
+                df = df[df['법정동'] == selected_dong]
+            
+            if price_col in df.columns:
+                temp_df = df.copy()
+                temp_df['num_price'] = pd.to_numeric(temp_df[price_col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+                valid_df = temp_df.dropna(subset=['num_price'])
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("총 거래건수", f"{len(df)} 건")
+                
+                if not valid_df.empty:
+                    max_row = valid_df.loc[valid_df['num_price'].idxmax()]
+                    min_row = valid_df.loc[valid_df['num_price'].idxmin()]
+                    col2.metric(f"최고가 🏆 ({max_row['아파트명']})", f"{int(max_row['num_price']):,} 만원")
+                    col3.metric(f"최저가 📉 ({min_row['아파트명']})", f"{int(min_row['num_price']):,} 만원")
+                else:
+                    col2.metric("최고가", "데이터 없음")
+                    col3.metric("최저가", "데이터 없음")
 
+            st.markdown("<br>", unsafe_allow_html=True) 
+            st.dataframe(df, use_container_width=True)
+
+        # --- 2. 🚨 갭투자 전세가율 분석 모드 ---
+        elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
+            df_t = st.session_state['data_trade'].copy()
+            df_r = st.session_state['data_rent'].copy()
+            
+            if not df_t.empty and not df_r.empty:
+                df_t['num_price'] = pd.to_numeric(df_t['dealAmount'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+                df_r['num_deposit'] = pd.to_numeric(df_r['deposit'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+                
+                # 🚨 핵심 업데이트: 면적(평수) 데이터 추출! (소수점 첫째 자리까지만 맞춰서 같은 평수로 묶기)
+                df_t['num_area'] = pd.to_numeric(df_t['excluUseAr'], errors='coerce').round(1)
+                df_r['num_area'] = pd.to_numeric(df_r['excluUseAr'], errors='coerce').round(1)
+                
+                if 'monthlyRent' in df_r.columns:
+                    df_r['num_rent'] = pd.to_numeric(df_r['monthlyRent'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+                    df_jeonse = df_r[(df_r['num_rent'] == 0) | (df_r['num_rent'].isna())]
+                else:
+                    df_jeonse = df_r
+
+                # 🚨 단지명 + '전용면적'까지 완벽하게 일치하는 것끼리 그룹화!
+                avg_trade = df_t.dropna(subset=['num_price', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].mean().reset_index()
+                avg_jeonse = df_jeonse.dropna(subset=['num_deposit', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_deposit'].mean().reset_index()
+
+                # 🚨 동, 아파트명, 면적이 '모두' 똑같은 데이터만 융합!
+                merged = pd.merge(avg_trade, avg_jeonse, on=['umdNm', 'aptNm', 'num_area'], how='inner')
+                
+                if not merged.empty:
+                    merged['전세가율(%)'] = (merged['num_deposit'] / merged['num_price']) * 100
+                    merged['필요갭(만원)'] = merged['num_price'] - merged['num_deposit']
+                    
+                    # 칼럼 이름 예쁘게 다듬기
+                    merged = merged.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
+                    merged['평균매매가(만원)'] = merged['num_price'].astype(int)
+                    merged['평균전세가(만원)'] = merged['num_deposit'].astype(int)
+                    merged['필요갭(만원)'] = merged['필요갭(만원)'].astype(int)
+                    merged['전세가율(%)'] = merged['전세가율(%)'].round(1)
+                    
+                    merged = merged[['법정동', '아파트명', '전용면적(㎡)', '평균매매가(만원)', '평균전세가(만원)', '필요갭(만원)', '전세가율(%)']]
+                    merged = merged.sort_values('전세가율(%)', ascending=False).reset_index(drop=True)
+
+                    # 🚨 조회 년월을 사람이 읽기 편하게 변환 (예: 202602 -> 2026년 2월)
+                    year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
+
+                    st.markdown("---")
+                    st.subheader(f"🔥 {info['gu']} 갭투자 랭킹 (전세가율 기준)")
+                    st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
+                    
+                    dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
+                    selected_dong_gap = st.selectbox("📍 집중 분석할 '동'을 선택하세요", ["구 전체보기"] + dong_list_gap, key="gap_dong")
+                    
+                    if selected_dong_gap != "구 전체보기":
+                        merged = merged[merged['법정동'] == selected_dong_gap].reset_index(drop=True)
+
+                    if not merged.empty:
+                        st.markdown(f"#### 🏆 **{selected_dong_gap if selected_dong_gap != '구 전체보기' else info['gu']} TOP 5**")
+                        top_n = min(5, len(merged)) 
+                        
+                        for i in range(top_n):
+                            row = merged.iloc[i]
+                            medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
+                            
+                            # 🚨 아파트명 옆에 [면적]을 똭! 기간도 똭! 명시합니다.
+                            st.success(f"{medal} **{i+1}위 | {row['아파트명']} ({row['전용면적(㎡)']}㎡)** - {row['법정동']}\n"
+                                       f"👉 **전세가율: {row['전세가율(%)']}%** / **필요 갭 자금: {row['필요갭(만원)']:,}만 원**\n\n"
+                                       f"*(기준: {year_month_str} | 평균 매매가: {row['평균매매가(만원)']:,}만 / 평균 전세가: {row['평균전세가(만원)']:,}만)*")
+
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.dataframe(merged, use_container_width=True)
+                    else:
+                        st.warning(f"🚨 선택하신 '{selected_dong_gap}'에는 {year_month_str}에 매매와 전세가 '동일 면적'으로 거래된 데이터가 없습니다.")
+                else:
+                    st.warning(f"🚨 {year_month_str}에 매매와 전세가 '완벽히 같은 면적'으로 거래된 아파트 단지가 없습니다. (예: 84㎡는 매매만, 59㎡는 전세만 거래된 경우 매칭 제외)")
+            else:
+                st.warning("데이터가 부족하여 전세가율을 계산할 수 없습니다.")
+                
+               
 # ==========================================
 # 4. 화면 구성 모듈 (앱 2: 세금 계산기)
 # ==========================================
