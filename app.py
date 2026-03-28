@@ -6,7 +6,6 @@ import json
 import os
 from datetime import datetime
 
-# 🚨 1. 바로 이 부분! initial_sidebar_state="collapsed" 옵션이 추가되었습니다!
 st.set_page_config(
     page_title="집스탯 PRO", 
     page_icon="🏢", 
@@ -142,7 +141,8 @@ def run_real_estate_app():
     with col2:
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
         
-    category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "갭투자 전세가율 분석"], horizontal=True)
+    # 🚨 '갭투자' 단어 삭제 및 '실투자금'으로 순화
+    category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
 
     if submit_btn:
@@ -159,7 +159,8 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'cat': api_cat, 'mode': '단순조회'}
                     st.success("✅ 데이터 조회를 완료했습니다!")
 
-        elif category == "갭투자 전세가율 분석":
+        # 🚨 순화된 단어 적용
+        elif category == "전세가율(실투자금) 분석":
             with st.spinner(f'{selected_gu} 매매 및 전세 데이터를 융합 분석 중...'):
                 df_trade, err_trade = fetch_real_estate_data("매매", lawd_cd, deal_ym, SERVICE_KEY)
                 df_rent, err_rent = fetch_real_estate_data("전월세", lawd_cd, deal_ym, SERVICE_KEY)
@@ -225,7 +226,7 @@ def run_real_estate_app():
             st.markdown("<br>", unsafe_allow_html=True) 
             st.dataframe(df, use_container_width=True)
 
-        # --- 2. 🚨 갭투자 전세가율 분석 모드 ---
+        # --- 2. 🚨 전세가율(실투자금) 분석 모드 ---
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
             df_t = st.session_state['data_trade'].copy()
             df_r = st.session_state['data_rent'].copy()
@@ -250,21 +251,24 @@ def run_real_estate_app():
                 
                 if not merged.empty:
                     merged['전세가율(%)'] = (merged['num_deposit'] / merged['num_price']) * 100
-                    merged['필요갭(만원)'] = merged['num_price'] - merged['num_deposit']
+                    
+                    # 🚨 '필요갭'을 '실투자금'으로 모두 변경
+                    merged['실투자금(만원)'] = merged['num_price'] - merged['num_deposit']
                     
                     merged = merged.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
                     merged['평균매매가(만원)'] = merged['num_price'].astype(int)
                     merged['평균전세가(만원)'] = merged['num_deposit'].astype(int)
-                    merged['필요갭(만원)'] = merged['필요갭(만원)'].astype(int)
+                    merged['실투자금(만원)'] = merged['실투자금(만원)'].astype(int)
                     merged['전세가율(%)'] = merged['전세가율(%)'].round(1)
                     
-                    merged = merged[['법정동', '아파트명', '전용면적(㎡)', '평균매매가(만원)', '평균전세가(만원)', '필요갭(만원)', '전세가율(%)']]
+                    merged = merged[['법정동', '아파트명', '전용면적(㎡)', '평균매매가(만원)', '평균전세가(만원)', '실투자금(만원)', '전세가율(%)']]
                     merged = merged.sort_values('전세가율(%)', ascending=False).reset_index(drop=True)
 
                     year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
 
                     st.markdown("---")
-                    st.subheader(f"📊 {info['gu']} 갭투자 랭킹 (전세가율 기준)")
+                    # 🚨 랭킹 제목도 세련되게 변경
+                    st.subheader(f"📊 {info['gu']} 전세가율 상위 단지 랭킹")
                     st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
                     
                     dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
@@ -281,11 +285,12 @@ def run_real_estate_app():
                             row = merged.iloc[i]
                             medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
                             
+                            # 🚨 실투자금으로 문구 반영
                             st.info(
                                 f"### {medal} {i+1}위: {row['아파트명']}\n"
                                 f"**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n"
                                 f"📊 **전세가율: {row['전세가율(%)']}%**\n\n"
-                                f"💰 **필요 갭: {row['필요갭(만원)']:,}만 원**\n\n"
+                                f"💰 **예상 실투자금: {row['실투자금(만원)']:,}만 원**\n\n"
                                 f"*(매매 {row['평균매매가(만원)']:,}만 / 전세 {row['평균전세가(만원)']:,}만)*"
                             )
 
@@ -407,7 +412,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-    
     
