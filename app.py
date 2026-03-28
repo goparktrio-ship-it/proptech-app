@@ -2,9 +2,40 @@ import streamlit as st
 import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
+import json
+import os
+from datetime import datetime
 
-# 🚨 스트림릿 기본 설정은 파일 맨 위에서 단 한 번만 실행해야 합니다!
-st.set_page_config(page_title="프롭테크 통합 플랫폼", page_icon="🏢", layout="wide")
+# 🚨 스트림릿 기본 설정은 파일 맨 위에서 단 한 번만!
+st.set_page_config(page_title="집스탯 PRO", page_icon="🏢", layout="wide")
+
+# ==========================================
+# 📊 방문자 수 트래킹 엔진
+# ==========================================
+COUNTER_FILE = "visitor_count.json"
+
+def update_and_get_visitor_count():
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    if not os.path.exists(COUNTER_FILE):
+        data = {"total": 0, "daily": {}}
+        with open(COUNTER_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+            
+    with open(COUNTER_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    if today not in data["daily"]:
+        data["daily"][today] = 0
+        
+    if 'has_visited' not in st.session_state:
+        data["total"] += 1
+        data["daily"][today] += 1
+        st.session_state['has_visited'] = True 
+        with open(COUNTER_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+            
+    return data["total"], data["daily"][today]
 
 # ==========================================
 # 1. 글로벌 환경 설정 및 상수 정의
@@ -22,7 +53,7 @@ GU_CODES = {
     "강동구": "11740", "마포구": "11440", "용산구": "11170",
     "성동구": "11200", "과천시": "41290", "수지구": "41465",
     "하남시": "41450", "분당구": "41135",
-    "동탄구(화성시)": "41597"  # 👈 2025년 과거 데이터까지 모두 뚫어버리는 통합 만능 코드!
+    "동탄구(화성시)": "41597"  # 👈 동탄 만능 통합 코드!
 }
 
 # 2025년 10월 지정 최신 조정대상지역 (2026년 기준)
@@ -33,7 +64,7 @@ REGULATED_AREAS = [
 ALL_AREAS = REGULATED_AREAS + ["그 외 수도권 (비규제지역)", "그 외 지방 (비규제지역)"]
 
 # ==========================================
-# 2. 백엔드(Back-end) 계산 및 데이터 수집 엔진
+# 2. 백엔드 데이터 수집 엔진
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_real_estate_data(category, lawd_cd, deal_ym, service_key):
@@ -66,22 +97,15 @@ def fetch_real_estate_data(category, lawd_cd, deal_ym, service_key):
 def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regulated):
     price = price_manwon * 10000 
     
-    if price_manwon <= 60000:
-        base_rate = 0.01
-    elif price_manwon <= 90000:
-        base_rate = ((price_manwon / 10000) * (2/3) - 3) / 100
-    else:
-        base_rate = 0.03
+    if price_manwon <= 60000: base_rate = 0.01
+    elif price_manwon <= 90000: base_rate = ((price_manwon / 10000) * (2/3) - 3) / 100
+    else: base_rate = 0.03
 
     tax_rate = base_rate
-    if homes_count in ["1주택 (무주택자 포함)", "일시적 2주택"]:
-        tax_rate = base_rate
-    elif homes_count == "2주택":
-        tax_rate = 0.08 if is_regulated else base_rate
-    elif homes_count == "3주택":
-        tax_rate = 0.12 if is_regulated else 0.08
-    elif homes_count == "4주택 이상 (법인 포함)":
-        tax_rate = 0.12     
+    if homes_count in ["1주택 (무주택자 포함)", "일시적 2주택"]: tax_rate = base_rate
+    elif homes_count == "2주택": tax_rate = 0.08 if is_regulated else base_rate
+    elif homes_count == "3주택": tax_rate = 0.12 if is_regulated else 0.08
+    elif homes_count == "4주택 이상 (법인 포함)": tax_rate = 0.12     
 
     if tax_rate == base_rate: 
         edu_rate = tax_rate * 0.1
@@ -112,7 +136,7 @@ def run_real_estate_app():
         selected_gu = st.selectbox("지역구 선택", list(GU_CODES.keys()))
         lawd_cd = GU_CODES[selected_gu]
     with col2:
-        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202603")
+        deal_ym = st.text_input("조회 년월 (YYYYMM)", value="202602")
         
     category = st.radio("분석 모드 선택", ["매매 실거래", "전월세 실거래", "🔥 갭투자 전세가율 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
@@ -197,7 +221,7 @@ def run_real_estate_app():
             st.markdown("<br>", unsafe_allow_html=True) 
             st.dataframe(df, use_container_width=True)
 
-        # --- 2. 🚨 갭투자 전세가율 분석 모드 ---
+        # --- 2. 🚨 갭투자 전세가율 분석 모드 (모바일 최적화 반영) ---
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
             df_t = st.session_state['data_trade'].copy()
             df_r = st.session_state['data_rent'].copy()
@@ -206,7 +230,6 @@ def run_real_estate_app():
                 df_t['num_price'] = pd.to_numeric(df_t['dealAmount'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
                 df_r['num_deposit'] = pd.to_numeric(df_r['deposit'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
                 
-                # 🚨 핵심 업데이트: 면적(평수) 데이터 추출! (소수점 첫째 자리까지만 맞춰서 같은 평수로 묶기)
                 df_t['num_area'] = pd.to_numeric(df_t['excluUseAr'], errors='coerce').round(1)
                 df_r['num_area'] = pd.to_numeric(df_r['excluUseAr'], errors='coerce').round(1)
                 
@@ -216,18 +239,15 @@ def run_real_estate_app():
                 else:
                     df_jeonse = df_r
 
-                # 🚨 단지명 + '전용면적'까지 완벽하게 일치하는 것끼리 그룹화!
                 avg_trade = df_t.dropna(subset=['num_price', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].mean().reset_index()
                 avg_jeonse = df_jeonse.dropna(subset=['num_deposit', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_deposit'].mean().reset_index()
 
-                # 🚨 동, 아파트명, 면적이 '모두' 똑같은 데이터만 융합!
                 merged = pd.merge(avg_trade, avg_jeonse, on=['umdNm', 'aptNm', 'num_area'], how='inner')
                 
                 if not merged.empty:
                     merged['전세가율(%)'] = (merged['num_deposit'] / merged['num_price']) * 100
                     merged['필요갭(만원)'] = merged['num_price'] - merged['num_deposit']
                     
-                    # 칼럼 이름 예쁘게 다듬기
                     merged = merged.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
                     merged['평균매매가(만원)'] = merged['num_price'].astype(int)
                     merged['평균전세가(만원)'] = merged['num_deposit'].astype(int)
@@ -237,7 +257,6 @@ def run_real_estate_app():
                     merged = merged[['법정동', '아파트명', '전용면적(㎡)', '평균매매가(만원)', '평균전세가(만원)', '필요갭(만원)', '전세가율(%)']]
                     merged = merged.sort_values('전세가율(%)', ascending=False).reset_index(drop=True)
 
-                    # 🚨 조회 년월을 사람이 읽기 편하게 변환 (예: 202602 -> 2026년 2월)
                     year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
 
                     st.markdown("---")
@@ -258,21 +277,27 @@ def run_real_estate_app():
                             row = merged.iloc[i]
                             medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
                             
-                            # 🚨 아파트명 옆에 [면적]을 똭! 기간도 똭! 명시합니다.
-                            st.success(f"{medal} **{i+1}위 | {row['아파트명']} ({row['전용면적(㎡)']}㎡)** - {row['법정동']}\n"
-                                       f"👉 **전세가율: {row['전세가율(%)']}%** / **필요 갭 자금: {row['필요갭(만원)']:,}만 원**\n\n"
-                                       f"*(기준: {year_month_str} | 평균 매매가: {row['평균매매가(만원)']:,}만 / 평균 전세가: {row['평균전세가(만원)']:,}만)*")
+                            # 🚨 모바일 최적화: 시원시원한 카드 뷰 UI
+                            st.info(
+                                f"### {medal} {i+1}위: {row['아파트명']}\n"
+                                f"**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n"
+                                f"🔥 **전세가율: {row['전세가율(%)']}%**\n\n"
+                                f"💰 **필요 갭: {row['필요갭(만원)']:,}만 원**\n\n"
+                                f"*(매매 {row['평균매매가(만원)']:,}만 / 전세 {row['평균전세가(만원)']:,}만)*"
+                            )
 
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.dataframe(merged, use_container_width=True)
+                        
+                        # 🚨 모바일 최적화: 좁은 화면을 가리는 표는 버튼으로 숨김!
+                        with st.expander("📊 전체 데이터 표 형식으로 자세히 보기 (클릭)"):
+                            st.dataframe(merged, use_container_width=True)
                     else:
                         st.warning(f"🚨 선택하신 '{selected_dong_gap}'에는 {year_month_str}에 매매와 전세가 '동일 면적'으로 거래된 데이터가 없습니다.")
                 else:
-                    st.warning(f"🚨 {year_month_str}에 매매와 전세가 '완벽히 같은 면적'으로 거래된 아파트 단지가 없습니다. (예: 84㎡는 매매만, 59㎡는 전세만 거래된 경우 매칭 제외)")
+                    st.warning(f"🚨 {year_month_str}에 매매와 전세가 '완벽히 같은 면적'으로 거래된 단지가 없습니다.")
             else:
                 st.warning("데이터가 부족하여 전세가율을 계산할 수 없습니다.")
-                
-               
+
 # ==========================================
 # 4. 화면 구성 모듈 (앱 2: 세금 계산기)
 # ==========================================
@@ -327,27 +352,17 @@ def run_tax_app():
         
         st.success(f"💸 **총 납부 예상 세금 (합계): {int(total_tax):,} 원**")
 
-    st.markdown("---")
-    st.info(
-        "📌 **[다주택자 취득세 중과 시점 안내]**\n"
-        "- **2주택부터 중과:** 계약일과 잔금일 **모두 조정지역**인 경우\n"
-        "- **3주택부터 중과:** 계약일 또는 잔금일 중 **하루라도 비규제지역**인 경우"
-    )
-
 # ==========================================
-# 5. 메인 네비게이션 (상단 탭으로 모바일 가독성 극대화!)
+# 5. 메인 네비게이션
 # ==========================================
 def main():
-    # 🎨 CSS 마법: 윗통수 잘림 방지용 '안전 여백' 적용!
+    # 🎨 CSS 마법: 윗통수 잘림 방지용 안전 여백 + 입체형 버튼 탭
     st.markdown("""
     <style>
-        /* 🚨 1. 너무 바짝 붙이지 않고 숨 쉴 공간(3rem)을 줍니다! */
         .block-container {
             padding-top: 3rem !important; 
             padding-bottom: 1rem !important;
         }
-        
-        /* 2. 입체형 버튼 탭 디자인 유지 */
         div[data-baseweb="tab-list"] { gap: 10px; }
         button[data-baseweb="tab"] {
             font-size: 18px !important;
@@ -365,7 +380,18 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # 🚨 대문 제목: 마이너스(-20px)로 멱살 잡던 걸 풀고(0px) 안전하게 내려놨습니다.
+    # 사이드바 (방문자 통계)
+    with st.sidebar:
+        st.title("⚙️ 프롭테크 메뉴")
+        total_visits, daily_visits = update_and_get_visitor_count()
+        st.markdown("---")
+        st.subheader("📊 방문자 통계")
+        col1, col2 = st.columns(2)
+        col1.metric("오늘 방문자", f"{daily_visits} 명")
+        col2.metric("총 방문자", f"{total_visits} 명")
+        st.markdown("---")
+
+    # 대문 타이틀
     st.markdown("<h1 style='text-align: center; color: #1E3A8A; margin-top: 0px;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555; font-size: 16px; margin-bottom: 20px;'>실거래가 분석부터 취득세 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
 
@@ -382,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+
+
     
     
