@@ -131,7 +131,7 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
 # 3. 화면 구성 모듈 (앱 1: 실거래가 및 전세가율)
 # ==========================================
 def run_real_estate_app():
-    st.header("🏠 실거래가 및 전세가율")
+    st.header("🏠 실거래가&전세가율")
     st.markdown("#### 🔍 검색 조건 설정")
     
     col1, col2 = st.columns(2)
@@ -264,7 +264,7 @@ def run_real_estate_app():
 
                     st.markdown("---")
                     # 🚨 대표님의 피드백을 반영하여 '우수' -> '상위'로 팩트 기반 수정 완료!
-                    st.subheader(f"📊 {info['gu']} 전세가율 상위 단지 랭킹")
+                    st.subheader(f"📊 {info['gu']} 전세가율 상위 단지")
                     st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
                     
                     dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
