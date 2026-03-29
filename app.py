@@ -131,7 +131,7 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
 # 3. 화면 구성 모듈 (앱 1: 실거래가 및 전세가율)
 # ==========================================
 def run_real_estate_app():
-    st.header("🏠 실거래가&전세가율")
+    st.header("🏠 실거래가 및 전세가율")
     st.markdown("#### 🔍 검색 조건 설정")
     
     col1, col2 = st.columns(2)
@@ -263,8 +263,7 @@ def run_real_estate_app():
                     year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
 
                     st.markdown("---")
-                    # 🚨 대표님의 피드백을 반영하여 '우수' -> '상위'로 팩트 기반 수정 완료!
-                    st.subheader(f"📊 {info['gu']} 전세가율 상위 단지")
+                    st.subheader(f"📊 {info['gu']} 전세가율 상위 단지 랭킹")
                     st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
                     
                     dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
@@ -358,20 +357,13 @@ def run_tax_app():
 # 5. 메인 네비게이션
 # ==========================================
 def main():
-    # 🚨 모바일 파편화 및 글자 깨짐 방지 대공사 적용!
+    # 🚨 억지 CSS 제거 후, 여백과 탭 모서리 둥글기만 남긴 순정 회귀!
     st.markdown("""
     <style>
-        /* 1. 모든 요소 단어 단위 줄바꿈 유지 (글자 반토막 금지) */
-        * {
-            word-break: keep-all !important;
-        }
-        
         .block-container {
             padding-top: 3rem !important; 
             padding-bottom: 1rem !important;
         }
-        
-        /* 2. 탭 버튼 여백을 줄이고 한 줄 텍스트 강제 고정 */
         div[data-baseweb="tab-list"] { gap: 5px; }
         button[data-baseweb="tab"] {
             font-size: 16px !important;
@@ -381,17 +373,14 @@ def main():
             padding: 10px 15px !important;
             color: #555555 !important;
             border-bottom: none !important;
-            white-space: nowrap !important; /* 글씨가 아무리 길어도 무조건 한 줄로! */
         }
         button[aria-selected="true"] {
             background-color: #FF4B4B !important;
             color: white !important;
         }
-        
-        /* 3. 좁은 화면(430px 이하 스마트폰)을 위한 마법의 미디어 쿼리 */
         @media screen and (max-width: 430px) {
             button[data-baseweb="tab"] {
-                font-size: 14px !important; /* 폰트를 살짝 더 줄여서 딱 맞게! */
+                font-size: 13px !important;
                 padding: 8px 10px !important;
             }
         }
@@ -411,7 +400,8 @@ def main():
     st.markdown("<h1 style='text-align: center; color: #1E3A8A; margin-top: 0px;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555; font-size: 16px; margin-bottom: 20px;'>실거래가 분석부터 취득세 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["🏠 실거래가 및 전세가율", "💰 주택 취득세 계산"])
+    # 🚨 탭 이름을 짧게 줄여서 모바일에서 자연스럽게 들어오도록 변경!
+    tab1, tab2 = st.tabs(["🏠 실거래가/전세가율", "💰 취득세 계산"])
     
     with tab1:
         run_real_estate_app()
@@ -424,4 +414,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
+    
