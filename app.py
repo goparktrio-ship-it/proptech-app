@@ -141,7 +141,6 @@ def run_real_estate_app():
     with col2:
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
         
-    # 🚨 '갭투자' 단어 삭제 및 '실투자금'으로 순화
     category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
 
@@ -159,7 +158,6 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'cat': api_cat, 'mode': '단순조회'}
                     st.success("✅ 데이터 조회를 완료했습니다!")
 
-        # 🚨 순화된 단어 적용
         elif category == "전세가율(실투자금) 분석":
             with st.spinner(f'{selected_gu} 매매 및 전세 데이터를 융합 분석 중...'):
                 df_trade, err_trade = fetch_real_estate_data("매매", lawd_cd, deal_ym, SERVICE_KEY)
@@ -251,8 +249,6 @@ def run_real_estate_app():
                 
                 if not merged.empty:
                     merged['전세가율(%)'] = (merged['num_deposit'] / merged['num_price']) * 100
-                    
-                    # 🚨 '필요갭'을 '실투자금'으로 모두 변경
                     merged['실투자금(만원)'] = merged['num_price'] - merged['num_deposit']
                     
                     merged = merged.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
@@ -267,7 +263,7 @@ def run_real_estate_app():
                     year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
 
                     st.markdown("---")
-                    # 🚨 랭킹 제목도 세련되게 변경
+                    # 🚨 대표님의 피드백을 반영하여 '우수' -> '상위'로 팩트 기반 수정 완료!
                     st.subheader(f"📊 {info['gu']} 전세가율 상위 단지 랭킹")
                     st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
                     
@@ -285,7 +281,6 @@ def run_real_estate_app():
                             row = merged.iloc[i]
                             medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
                             
-                            # 🚨 실투자금으로 문구 반영
                             st.info(
                                 f"### {medal} {i+1}위: {row['아파트명']}\n"
                                 f"**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n"
@@ -363,25 +358,42 @@ def run_tax_app():
 # 5. 메인 네비게이션
 # ==========================================
 def main():
+    # 🚨 모바일 파편화 및 글자 깨짐 방지 대공사 적용!
     st.markdown("""
     <style>
+        /* 1. 모든 요소 단어 단위 줄바꿈 유지 (글자 반토막 금지) */
+        * {
+            word-break: keep-all !important;
+        }
+        
         .block-container {
             padding-top: 3rem !important; 
             padding-bottom: 1rem !important;
         }
-        div[data-baseweb="tab-list"] { gap: 10px; }
+        
+        /* 2. 탭 버튼 여백을 줄이고 한 줄 텍스트 강제 고정 */
+        div[data-baseweb="tab-list"] { gap: 5px; }
         button[data-baseweb="tab"] {
-            font-size: 18px !important;
+            font-size: 16px !important;
             font-weight: bold !important;
             background-color: #f0f2f6 !important;
             border-radius: 12px 12px 0px 0px !important;
-            padding: 12px 20px !important;
+            padding: 10px 15px !important;
             color: #555555 !important;
             border-bottom: none !important;
+            white-space: nowrap !important; /* 글씨가 아무리 길어도 무조건 한 줄로! */
         }
         button[aria-selected="true"] {
             background-color: #FF4B4B !important;
             color: white !important;
+        }
+        
+        /* 3. 좁은 화면(430px 이하 스마트폰)을 위한 마법의 미디어 쿼리 */
+        @media screen and (max-width: 430px) {
+            button[data-baseweb="tab"] {
+                font-size: 14px !important; /* 폰트를 살짝 더 줄여서 딱 맞게! */
+                padding: 8px 10px !important;
+            }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -412,4 +424,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+
