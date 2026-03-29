@@ -97,7 +97,6 @@ def fetch_real_estate_data(category, lawd_cd, deal_ym, service_key):
     except Exception as e:
         return pd.DataFrame(), f"오류 발생: {e}"
 
-# 🚨 신고가를 위해 '과거 12개월' 날짜를 자동으로 계산해 주는 마법의 함수!
 def get_last_12_months(end_ym):
     year, month = int(end_ym[:4]), int(end_ym[4:])
     months = []
@@ -153,8 +152,8 @@ def run_real_estate_app():
     with col2:
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
         
-    # 🚨 여기에 "🚀 1년 내 신고가 분석" 모드가 추가되었습니다!
-    category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 신고가 분석"], horizontal=True)
+    # 🚨 '신고가' -> '최고가'로 변경 적용!
+    category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 최고가 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
 
     if submit_btn:
@@ -185,12 +184,11 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
                     st.success("✅ 전세가율 계산 완료!")
                     
-        # 🚨 닌자 모드 발동: 1년 치 데이터를 뒤에서 몰래 긁어옵니다!
-        elif category == "🚀 1년 내 신고가 분석":
+        # 🚨 '최고가' 텍스트 반영
+        elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
             
-            # 멋진 게이지 바 생성!
             progress_text = "과거 1년 치 실거래가 데이터를 수집 중입니다. (최대 10초 소요 🥷)"
             my_bar = st.progress(0, text=progress_text)
             
@@ -198,17 +196,17 @@ def run_real_estate_app():
             for i, ym in enumerate(months_to_fetch):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
                 if not df.empty:
-                    df['조회년월'] = ym # 나중에 언젯적 데이터인지 알기 위해 꼬리표 달기
+                    df['조회년월'] = ym
                     all_data.append(df)
                 
-                # 게이지 바 업데이트
                 my_bar.progress((i + 1) / 12, text=f"{selected_gu} {ym} 데이터 수집 및 검증 완료... ({i+1}/12)")
             
             if all_data:
                 df_all = pd.concat(all_data, ignore_index=True)
                 st.session_state['data_high'] = df_all
-                st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '신고가'}
-                st.success("✅ 1년 치 신고가 판독 완료!")
+                # 🚨 내부 모드 이름도 '최고가'로 일치시켰습니다
+                st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '최고가'}
+                st.success("✅ 1년 치 최고가 판독 완료!")
             else:
                 st.error("해당 기간의 데이터를 불러오지 못했습니다.")
                 st.session_state['info'] = None
@@ -339,36 +337,32 @@ def run_real_estate_app():
             else:
                 st.warning("데이터가 부족하여 전세가율을 계산할 수 없습니다.")
 
-        # --- 3. 🚨 1년 내 신고가 분석 모드 출력 화면 ---
-        elif info['mode'] == '신고가' and 'data_high' in st.session_state:
+        # --- 3. 🚨 1년 내 최고가 분석 모드 출력 화면 ---
+        elif info['mode'] == '최고가' and 'data_high' in st.session_state:
             df = st.session_state['data_high'].copy()
             
-            # 숫자형 변환
             df['num_price'] = pd.to_numeric(df['dealAmount'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
             df['num_area'] = pd.to_numeric(df['excluUseAr'], errors='coerce').round(1)
             df = df.dropna(subset=['num_price', 'num_area'])
             
-            # 1. 1년 전체 데이터 중에서 단지+평수별 가장 비쌌던 가격 뽑기 (역대급 가격)
             max_prices = df.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index()
             max_prices = max_prices.rename(columns={'num_price': '1년최고가(만원)'})
             
-            # 2. 이번 달(대표님이 조회한 달) 거래 내역만 필터링
             df_target = df[df['조회년월'] == info['ym']]
             target_max = df_target.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index()
             target_max = target_max.rename(columns={'num_price': '당월최고가(만원)'})
             
-            # 3. 데이터 매칭해서 진짜 신고가 잡아내기!
             merged = pd.merge(target_max, max_prices, on=['umdNm', 'aptNm', 'num_area'], how='inner')
             new_highs = merged[merged['당월최고가(만원)'] >= merged['1년최고가(만원)']].copy()
             
             year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
 
             st.markdown("---")
-            st.markdown(f"#### 🚀 {info['gu']} 1년 내 최고가(신고가) 달성 단지")
+            # 🚨 '달성' 단어 제거 완료!
+            st.markdown(f"#### 🚀 {info['gu']} 1년 내 최고가 단지")
             st.info(f"💡 **기준월:** {year_month_str}\n\n💡 **조건:** 최근 12개월 동안 거래된 모든 실거래가 중 **가장 비싼 가격을 갱신**한 단지입니다.")
             
             if not new_highs.empty:
-                # 가격이 가장 비싼 순서대로 줄 세우기
                 new_highs = new_highs.sort_values('당월최고가(만원)', ascending=False).reset_index(drop=True)
                 
                 dong_list_high = sorted(new_highs['umdNm'].dropna().unique().tolist())
@@ -388,20 +382,21 @@ def run_real_estate_app():
                         st.success(
                             f"### {medal} {row['aptNm']}\n"
                             f"**📍 {row['umdNm']} | 📐 {row['num_area']}㎡**\n\n"
-                            f"🚀 **신고가: {int(row['당월최고가(만원)']):,}만 원**"
+                            # 🚨 '신고가' -> '최고가'로 변경 완료!
+                            f"🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**"
                         )
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # 표 정리해서 보여주기
                     new_highs = new_highs.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
                     new_highs['당월최고가(만원)'] = new_highs['당월최고가(만원)'].astype(int)
                     new_highs['1년최고가(만원)'] = new_highs['1년최고가(만원)'].astype(int)
                     
-                    with st.expander("📊 전체 신고가 데이터 표 형식으로 자세히 보기 (클릭)"):
+                    # 🚨 문구 '최고가'로 변경 완료!
+                    with st.expander("📊 전체 최고가 데이터 표 형식으로 자세히 보기 (클릭)"):
                         st.dataframe(new_highs[['법정동', '아파트명', '전용면적(㎡)', '당월최고가(만원)']], use_container_width=True)
                 else:
-                    st.warning(f"🚨 선택하신 '{selected_dong_high}'에는 {year_month_str} 기준 신고가를 갱신한 단지가 없습니다.")
+                    st.warning(f"🚨 선택하신 '{selected_dong_high}'에는 {year_month_str} 기준 최고가를 갱신한 단지가 없습니다.")
             else:
                 st.warning(f"🚨 {year_month_str} 기준, 지난 1년간의 최고가를 갱신한 단지가 하나도 없습니다. (하락 또는 보합장일 확률이 높습니다)")
 
@@ -518,4 +513,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
