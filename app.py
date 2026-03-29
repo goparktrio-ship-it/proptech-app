@@ -138,8 +138,70 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
     
     return acquisition_tax, edu_tax, rural_tax, total_tax, tax_rate
 
+# 🚨 종부세 누진세율 계산 도우미 함수 (단독/공동명의 중복 코드 제거용)
+def get_comp_tax_amount(tax_base):
+    if tax_base <= 0: return 0
+    if tax_base <= 300000000: return tax_base * 0.005
+    elif tax_base <= 600000000: return 1500000 + (tax_base - 300000000) * 0.007
+    elif tax_base <= 1200000000: return 3600000 + (tax_base - 600000000) * 0.01
+    else: return 9600000 + (tax_base - 1200000000) * 0.013 
+
+# 🚨 공동명의(is_joint) 변수 추가 반영!
+def calculate_holding_tax(official_price_manwon, homes_count, is_joint):
+    official_price = official_price_manwon * 10000 
+
+    # 1. 재산세 계산 (물건 중심이므로 명의 무관)
+    is_special = (homes_count == "1주택" and official_price_manwon <= 90000)
+
+    if homes_count == "1주택":
+        if official_price_manwon <= 30000: fmv_ratio_prop = 0.43
+        elif official_price_manwon <= 60000: fmv_ratio_prop = 0.44
+        else: fmv_ratio_prop = 0.45
+    else:
+        fmv_ratio_prop = 0.60
+
+    tax_base_prop = official_price * fmv_ratio_prop
+
+    if is_special:
+        if tax_base_prop <= 60000000: prop_tax = tax_base_prop * 0.0005
+        elif tax_base_prop <= 150000000: prop_tax = 30000 + (tax_base_prop - 60000000) * 0.001
+        elif tax_base_prop <= 300000000: prop_tax = 120000 + (tax_base_prop - 150000000) * 0.0015
+        else: prop_tax = 345000 + (tax_base_prop - 300000000) * 0.0035
+    else:
+        if tax_base_prop <= 60000000: prop_tax = tax_base_prop * 0.001
+        elif tax_base_prop <= 150000000: prop_tax = 60000 + (tax_base_prop - 60000000) * 0.0015
+        elif tax_base_prop <= 300000000: prop_tax = 195000 + (tax_base_prop - 150000000) * 0.002
+        else: prop_tax = 495000 + (tax_base_prop - 300000000) * 0.004
+
+    city_tax = tax_base_prop * 0.0014
+    edu_tax_prop = prop_tax * 0.2
+    total_prop_tax = prop_tax + city_tax + edu_tax_prop
+
+    # 2. 종합부동산세 계산 (🚨 공동명의 분리 로직 적용)
+    if is_joint:
+        # 공동명의 50:50 -> 공시가격을 반으로 쪼개고, 각자 9억씩 공제받음 (총 18억 효과)
+        per_person_price = official_price / 2
+        per_person_deduction = 900000000 # 인당 9억 공제
+        tax_base_comp_per_person = max(0, per_person_price - per_person_deduction) * 0.60
+        
+        comp_tax_per_person = get_comp_tax_amount(tax_base_comp_per_person)
+        comp_tax = comp_tax_per_person * 2 # 다시 2명분으로 합산
+    else:
+        # 단독명의 -> 1주택은 12억, 다주택은 9억 통으로 공제
+        deduction = 1200000000 if homes_count == "1주택" else 900000000
+        tax_base_comp = max(0, official_price - deduction) * 0.60 
+        comp_tax = get_comp_tax_amount(tax_base_comp)
+
+    if comp_tax > 0:
+        rural_tax_comp = comp_tax * 0.2 
+        total_comp_tax = comp_tax + rural_tax_comp
+    else:
+        total_comp_tax = 0
+
+    return official_price, total_prop_tax, total_comp_tax
+
 # ==========================================
-# 3. 화면 구성 모듈 (앱 1: 실거래가 및 전세가율)
+# 3. 화면 구성 모듈 (앱 1: 실거래가/전세가율)
 # ==========================================
 def run_real_estate_app():
     st.subheader("🏠 실거래가/전세가율")
@@ -152,7 +214,6 @@ def run_real_estate_app():
     with col2:
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
         
-    # 🚨 '신고가' -> '최고가'로 변경 적용!
     category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 최고가 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
 
@@ -184,7 +245,6 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
                     st.success("✅ 전세가율 계산 완료!")
                     
-        # 🚨 '최고가' 텍스트 반영
         elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
@@ -192,267 +252,208 @@ def run_real_estate_app():
             progress_text = "과거 1년 치 실거래가 데이터를 수집 중입니다. (최대 10초 소요 🥷)"
             my_bar = st.progress(0, text=progress_text)
             
-            has_error = False
             for i, ym in enumerate(months_to_fetch):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
                 if not df.empty:
                     df['조회년월'] = ym
                     all_data.append(df)
                 
-                my_bar.progress((i + 1) / 12, text=f"{selected_gu} {ym} 데이터 수집 및 검증 완료... ({i+1}/12)")
+                my_bar.progress((i + 1) / 12, text=f"{selected_gu} {ym} 데이터 수집 완료... ({i+1}/12)")
             
             if all_data:
                 df_all = pd.concat(all_data, ignore_index=True)
                 st.session_state['data_high'] = df_all
-                # 🚨 내부 모드 이름도 '최고가'로 일치시켰습니다
                 st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '최고가'}
                 st.success("✅ 1년 치 최고가 판독 완료!")
             else:
-                st.error("해당 기간의 데이터를 불러오지 못했습니다.")
+                st.error("데이터를 불러오지 못했습니다.")
                 st.session_state['info'] = None
 
-    # ==============================
-    # 📊 데이터 화면 출력 로직
-    # ==============================
     if 'info' in st.session_state and st.session_state['info'] is not None:
         info = st.session_state['info']
         
-        # --- 1. 단순 실거래가 조회 모드 ---
         if info['mode'] == '단순조회' and 'data' in st.session_state:
             df = st.session_state['data'].copy()
-            
             if info['cat'] == "매매":
                 target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
                 exist_cols = [c for c in target_cols if c in df.columns]
-                df = df[exist_cols]
-                df = df.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
+                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
                 price_col = '매매가(만원)' 
             else:
                 target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
                 exist_cols = [c for c in target_cols if c in df.columns]
-                df = df[exist_cols]
-                df = df.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
+                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
                 price_col = '보증금(만원)' 
 
             st.markdown("---")
             st.subheader(f"🏘️ {info['gu']} 상세 동 필터링 ({info['ym']} / {info['cat']})")
-            
             dong_list = sorted(df['법정동'].dropna().unique().tolist())
             selected_dong = st.selectbox("**원하시는 '동'을 선택하세요**", ["전체보기"] + dong_list, key="simple_dong")
-            
-            if selected_dong != "전체보기":
-                df = df[df['법정동'] == selected_dong]
+            if selected_dong != "전체보기": df = df[df['법정동'] == selected_dong]
             
             if price_col in df.columns:
                 temp_df = df.copy()
                 temp_df['num_price'] = pd.to_numeric(temp_df[price_col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
                 valid_df = temp_df.dropna(subset=['num_price'])
-                
                 col1, col2, col3 = st.columns(3)
                 col1.metric("총 거래건수", f"{len(df)} 건")
-                
                 if not valid_df.empty:
                     max_row = valid_df.loc[valid_df['num_price'].idxmax()]
                     min_row = valid_df.loc[valid_df['num_price'].idxmin()]
                     col2.metric(f"최고가 🏆 ({max_row['아파트명']})", f"{int(max_row['num_price']):,} 만원")
                     col3.metric(f"최저가 📉 ({min_row['아파트명']})", f"{int(min_row['num_price']):,} 만원")
-                else:
-                    col2.metric("최고가", "데이터 없음")
-                    col3.metric("최저가", "데이터 없음")
 
             st.markdown("<br>", unsafe_allow_html=True) 
             st.dataframe(df, use_container_width=True)
 
-        # --- 2. 🚨 전세가율(실투자금) 분석 모드 ---
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
-            df_t = st.session_state['data_trade'].copy()
-            df_r = st.session_state['data_rent'].copy()
-            
+            df_t, df_r = st.session_state['data_trade'].copy(), st.session_state['data_rent'].copy()
             if not df_t.empty and not df_r.empty:
                 df_t['num_price'] = pd.to_numeric(df_t['dealAmount'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
                 df_r['num_deposit'] = pd.to_numeric(df_r['deposit'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
-                
                 df_t['num_area'] = pd.to_numeric(df_t['excluUseAr'], errors='coerce').round(1)
                 df_r['num_area'] = pd.to_numeric(df_r['excluUseAr'], errors='coerce').round(1)
                 
-                if 'monthlyRent' in df_r.columns:
-                    df_r['num_rent'] = pd.to_numeric(df_r['monthlyRent'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
-                    df_jeonse = df_r[(df_r['num_rent'] == 0) | (df_r['num_rent'].isna())]
-                else:
-                    df_jeonse = df_r
-
-                avg_trade = df_t.dropna(subset=['num_price', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].mean().reset_index()
-                avg_jeonse = df_jeonse.dropna(subset=['num_deposit', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_deposit'].mean().reset_index()
-
-                merged = pd.merge(avg_trade, avg_jeonse, on=['umdNm', 'aptNm', 'num_area'], how='inner')
+                df_jeonse = df_r[(pd.to_numeric(df_r['monthlyRent'], errors='coerce') == 0) | (df_r['monthlyRent'].isna())]
+                avg_t = df_t.dropna(subset=['num_price', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].mean().reset_index()
+                avg_r = df_jeonse.dropna(subset=['num_deposit', 'num_area']).groupby(['umdNm', 'aptNm', 'num_area'])['num_deposit'].mean().reset_index()
+                merged = pd.merge(avg_t, avg_r, on=['umdNm', 'aptNm', 'num_area'], how='inner')
                 
                 if not merged.empty:
-                    merged['전세가율(%)'] = (merged['num_deposit'] / merged['num_price']) * 100
-                    merged['실투자금(만원)'] = merged['num_price'] - merged['num_deposit']
-                    
-                    merged = merged.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
-                    merged['평균매매가(만원)'] = merged['num_price'].astype(int)
-                    merged['평균전세가(만원)'] = merged['num_deposit'].astype(int)
-                    merged['실투자금(만원)'] = merged['실투자금(만원)'].astype(int)
-                    merged['전세가율(%)'] = merged['전세가율(%)'].round(1)
-                    
-                    merged = merged[['법정동', '아파트명', '전용면적(㎡)', '평균매매가(만원)', '평균전세가(만원)', '실투자금(만원)', '전세가율(%)']]
+                    merged['전세가율(%)'] = (merged['num_deposit'] / merged['num_price'] * 100).round(1)
+                    merged['실투자금(만원)'] = (merged['num_price'] - merged['num_deposit']).astype(int)
+                    merged = merged.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)', 'num_price': '평균매매가(만원)', 'num_deposit': '평균전세가(만원)'})
                     merged = merged.sort_values('전세가율(%)', ascending=False).reset_index(drop=True)
 
                     year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
-
                     st.markdown("---")
                     st.markdown(f"#### 📊 {info['gu']} 전세가율 상위 단지")
                     st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
                     
                     dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
-                    selected_dong_gap = st.selectbox("**집중 분석할 '동' 선택**", ["구 전체보기"] + dong_list_gap, key="gap_dong")
-                    
-                    if selected_dong_gap != "구 전체보기":
-                        merged = merged[merged['법정동'] == selected_dong_gap].reset_index(drop=True)
+                    sel_dong_gap = st.selectbox("**집중 분석할 '동' 선택**", ["구 전체보기"] + dong_list_gap, key="gap_dong")
+                    if sel_dong_gap != "구 전체보기": merged = merged[merged['법정동'] == sel_dong_gap].reset_index(drop=True)
 
                     if not merged.empty:
-                        st.markdown(f"#### 🏆 **{selected_dong_gap if selected_dong_gap != '구 전체보기' else info['gu']} TOP 5**")
-                        top_n = min(5, len(merged)) 
-                        
-                        for i in range(top_n):
+                        st.markdown(f"#### 🏆 **{sel_dong_gap if sel_dong_gap != '구 전체보기' else info['gu']} TOP 5**")
+                        for i in range(min(5, len(merged))):
                             row = merged.iloc[i]
-                            medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
-                            
-                            st.info(
-                                f"### {medal} {i+1}위: {row['아파트명']}\n"
-                                f"**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n"
-                                f"📊 **전세가율: {row['전세가율(%)']}%**\n\n"
-                                f"💰 **예상 실투자금: {row['실투자금(만원)']:,}만 원**\n\n"
-                                f"*(매매 {row['평균매매가(만원)']:,}만 / 전세 {row['평균전세가(만원)']:,}만)*"
-                            )
+                            st.info(f"### {'🥇🥈🥉🏅🏅'[i]} {i+1}위: {row['아파트명']}\n**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n📊 **전세가율: {row['전세가율(%)']}%**\n\n💰 **예상 실투자금: {row['실투자금(만원)']:,}만 원**")
+                        with st.expander("📊 전체 데이터 보기"): st.dataframe(merged, use_container_width=True)
 
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        with st.expander("📊 전체 데이터 표 형식으로 자세히 보기 (클릭)"):
-                            st.dataframe(merged, use_container_width=True)
-                    else:
-                        st.warning(f"🚨 선택하신 '{selected_dong_gap}'에는 {year_month_str}에 매매와 전세가 '동일 면적'으로 거래된 데이터가 없습니다.")
-                else:
-                    st.warning(f"🚨 {year_month_str}에 매매와 전세가 '완벽히 같은 면적'으로 거래된 단지가 없습니다.")
-            else:
-                st.warning("데이터가 부족하여 전세가율을 계산할 수 없습니다.")
-
-        # --- 3. 🚨 1년 내 최고가 분석 모드 출력 화면 ---
         elif info['mode'] == '최고가' and 'data_high' in st.session_state:
             df = st.session_state['data_high'].copy()
-            
             df['num_price'] = pd.to_numeric(df['dealAmount'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
             df['num_area'] = pd.to_numeric(df['excluUseAr'], errors='coerce').round(1)
             df = df.dropna(subset=['num_price', 'num_area'])
             
-            max_prices = df.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index()
-            max_prices = max_prices.rename(columns={'num_price': '1년최고가(만원)'})
-            
-            df_target = df[df['조회년월'] == info['ym']]
-            target_max = df_target.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index()
-            target_max = target_max.rename(columns={'num_price': '당월최고가(만원)'})
-            
-            merged = pd.merge(target_max, max_prices, on=['umdNm', 'aptNm', 'num_area'], how='inner')
-            new_highs = merged[merged['당월최고가(만원)'] >= merged['1년최고가(만원)']].copy()
-            
-            year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
+            max_p = df.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index().rename(columns={'num_price': '1년최고가(만원)'})
+            df_t = df[df['조회년월'] == info['ym']]
+            target_p = df_t.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index().rename(columns={'num_price': '당월최고가(만원)'})
+            merged = pd.merge(target_p, max_p, on=['umdNm', 'aptNm', 'num_area'], how='inner')
+            new_highs = merged[merged['당월최고가(만원)'] >= merged['1년최고가(만원)']].sort_values('당월최고가(만원)', ascending=False).reset_index(drop=True)
 
             st.markdown("---")
-            # 🚨 '달성' 단어 제거 완료!
             st.markdown(f"#### 🚀 {info['gu']} 1년 내 최고가 단지")
-            st.info(f"💡 **기준월:** {year_month_str}\n\n💡 **조건:** 최근 12개월 동안 거래된 모든 실거래가 중 **가장 비싼 가격을 갱신**한 단지입니다.")
+            st.info(f"💡 **기준월:** {info['ym'][:4]}년 {int(info['ym'][4:]):d}월\n\n💡 **조건:** 최근 12개월 실거래 중 **최고가를 갱신**한 단지")
             
             if not new_highs.empty:
-                new_highs = new_highs.sort_values('당월최고가(만원)', ascending=False).reset_index(drop=True)
-                
-                dong_list_high = sorted(new_highs['umdNm'].dropna().unique().tolist())
-                selected_dong_high = st.selectbox("**집중 분석할 '동' 선택**", ["구 전체보기"] + dong_list_high, key="high_dong")
-                
-                if selected_dong_high != "구 전체보기":
-                    new_highs = new_highs[new_highs['umdNm'] == selected_dong_high].reset_index(drop=True)
+                dong_list_h = sorted(new_highs['umdNm'].dropna().unique().tolist())
+                sel_dong_h = st.selectbox("**집중 분석할 '동' 선택**", ["구 전체보기"] + dong_list_h, key="high_dong")
+                if sel_dong_h != "구 전체보기": new_highs = new_highs[new_highs['umdNm'] == sel_dong_h].reset_index(drop=True)
 
                 if not new_highs.empty:
-                    st.markdown(f"#### 🔥 **{selected_dong_high if selected_dong_high != '구 전체보기' else info['gu']} 대장주 TOP 5**")
-                    top_n = min(5, len(new_highs)) 
-                    
-                    for i in range(top_n):
+                    for i in range(min(5, len(new_highs))):
                         row = new_highs.iloc[i]
-                        medal = "🏆" if i == 0 else "🔥" 
-                        
-                        st.success(
-                            f"### {medal} {row['aptNm']}\n"
-                            f"**📍 {row['umdNm']} | 📐 {row['num_area']}㎡**\n\n"
-                            # 🚨 '신고가' -> '최고가'로 변경 완료!
-                            f"🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**"
-                        )
-
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    new_highs = new_highs.rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'num_area': '전용면적(㎡)'})
-                    new_highs['당월최고가(만원)'] = new_highs['당월최고가(만원)'].astype(int)
-                    new_highs['1년최고가(만원)'] = new_highs['1년최고가(만원)'].astype(int)
-                    
-                    # 🚨 문구 '최고가'로 변경 완료!
-                    with st.expander("📊 전체 최고가 데이터 표 형식으로 자세히 보기 (클릭)"):
-                        st.dataframe(new_highs[['법정동', '아파트명', '전용면적(㎡)', '당월최고가(만원)']], use_container_width=True)
-                else:
-                    st.warning(f"🚨 선택하신 '{selected_dong_high}'에는 {year_month_str} 기준 최고가를 갱신한 단지가 없습니다.")
-            else:
-                st.warning(f"🚨 {year_month_str} 기준, 지난 1년간의 최고가를 갱신한 단지가 하나도 없습니다. (하락 또는 보합장일 확률이 높습니다)")
+                        st.success(f"### {'🏆🔥'[min(1, i)]} {row['aptNm']}\n**📍 {row['umdNm']} | 📐 {row['num_area']}㎡**\n\n🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**")
+                    with st.expander("📊 전체 데이터 보기"): st.dataframe(new_highs, use_container_width=True)
 
 # ==========================================
-# 4. 화면 구성 모듈 (앱 2: 세금 계산기)
+# 4. 화면 구성 모듈 (앱 2: 취득세/보유세 계산)
 # ==========================================
 def run_tax_app():
-    st.header("💰 주택 취득세 계산")
-    st.info("📌 **적용 기준: 2025년 10월 대책 반영 (2026년 최신 기준)**")
-    st.markdown("매수 지역과 주택 수만 선택하세요. **최신 규제지역 여부와 중과세율을 앱이 자동으로 판단**합니다.")
-    st.markdown("---")
-
+    st.header("💰 주택 취득세 및 연간 보유세 계산")
+    st.info("📌 **적용 기준: 2026년 최신 세법 기준 (재산세/종부세 포함)**")
+    
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("1. 매수할 물건 정보")
         selected_area = st.selectbox("**어느 지역의 아파트를 매수하시나요?**", ALL_AREAS)
         is_regulated = selected_area in REGULATED_AREAS
-        
         price_input = st.number_input("**매매가 (만원 단위)**", min_value=1000, value=80000, step=1000)
         st.caption(f"💡 입력 금액: {price_input/10000:.1f}억 원")
         is_large = st.checkbox("전용면적 85㎡ 초과 (농특세 부과)")
 
     with col2:
-        st.subheader("2. 매수자 주택 수")
-        homes_count = st.selectbox("**취득 후 총 주택 수**", [
-            "1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"
-        ])
+        st.subheader("2. 매수자 명의 및 주택 수")
+        homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
+        
+        # 🚨 공동명의 체크박스 신규 추가!
+        is_joint = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**")
         
         st.markdown("<br>", unsafe_allow_html=True)
-        if is_regulated:
-            st.error(f"🚨 **{selected_area}**는 현재 **조정대상지역**입니다.")
-            if homes_count == "일시적 2주택":
-                st.info("💡 **[일시적 2주택 혜택]** 기한 내 기존 주택 처분 조건으로 **기본세율(1~3%)**이 적용됩니다!")
-            elif homes_count in ["2주택", "3주택"]:
-                st.warning("⚠️ 다주택자 조정지역 중과세율이 무겁게 적용됩니다.")
+        
+        if is_joint and homes_count == "1주택":
+            st.info("💡 공동명의 1주택: 각자 9억씩 총 **18억 원의 종부세 기본공제** 혜택이 적용됩니다.")
+            
+        if is_regulated: st.error(f"🚨 **{selected_area}**는 조정대상지역입니다.")
+        else: st.success(f"✅ **{selected_area}**는 비규제지역입니다.")
+
+    st.markdown("---")
+    
+    default_official_price = int(price_input * 0.7)
+    
+    with st.expander("⚙️ 상세 설정 (공시가격 직접 수정)"):
+        st.markdown("보유세는 매매가가 아닌 '공시가격' 기준입니다. 기본적으로 **매매가의 70%**로 자동 계산됩니다.")
+        st.markdown("🌐 [국토부 공시가격 확인하기](https://www.realtyprice.kr/)")
+        
+        use_manual = st.checkbox("**☑️ 정확한 공시가격을 직접 입력하겠습니다.**")
+        if use_manual:
+            official_price_input = st.number_input("**정확한 공시가격 (만원 단위)**", min_value=100, value=default_official_price, step=1000)
         else:
-            st.success(f"✅ **{selected_area}**는 **비규제지역**입니다.")
-            if homes_count == "2주택":
-                st.info("💡 비규제지역 2주택까지는 중과 없이 **기본세율(1~3%)**이 적용됩니다.")
+            official_price_input = default_official_price
+            st.write(f"현재 자동 추정된 공시가격: **{official_price_input:,}만 원**")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("세금 정밀 계산하기 🚀", use_container_width=True):
-        acq_tax, edu_tax, rural_tax, total_tax, final_rate = calculate_acquisition_tax(
-            price_input, is_large, homes_count, is_regulated
-        )
+        acq_tax, edu_tax, rural_tax, total_tax, final_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
+        
+        # 🚨 엔진에 공동명의 여부(is_joint) 데이터 넘겨주기
+        off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
         
         st.markdown("---")
-        st.subheader("📊 예상 취득세 분석 결과")
-        st.warning(f"**적용된 취득세 본세율:** {final_rate * 100:.1f}%")
+        st.subheader("📊 1. 예상 취득세 결과")
+        st.warning(f"**적용 본세율:** {final_rate * 100:.1f}%")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("① 취득세", f"{int(acq_tax):,} 원")
+        c2.metric("② 지방교육세", f"{int(edu_tax):,} 원")
+        c3.metric("③ 농특세", f"{int(rural_tax):,} 원")
+        st.success(f"💸 **총 납부 예상 취득세: {int(total_tax):,} 원**")
+
+        st.markdown("---")
+        st.subheader("📊 2. 예상 연간 보유세 결과")
+        st.info(f"💡 **기준 공시가격:** {int(off_p_won):,} 원")
+        h1, h2, h3 = st.columns(3)
+        h1.metric("① 재산세", f"{int(prop_p_won):,} 원")
+        h2.metric("② 종부세", f"{int(comp_p_won):,} 원")
+        h3.metric("③ 총 보유세", f"{int(prop_p_won + comp_p_won):,} 원")
         
-        m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.metric("① 취득세", f"{int(acq_tax):,} 원")
-        m_col2.metric("② 지방교육세", f"{int(edu_tax):,} 원")
-        m_col3.metric("③ 농어촌특별세", f"{int(rural_tax):,} 원")
-        
-        st.success(f"💸 **총 납부 예상 세금 (합계): {int(total_tax):,} 원**")
+        st.error(f"💸 **매년 납부 예상 보유세: {int(prop_p_won + comp_p_won):,} 원**")
+
+        with st.expander("📝 산출 기준 안내"):
+            st.markdown("""
+            **1. 공시가격 현실화율** - 별도 입력이 없으면 **매매가의 70%**를 공시가로 자동 추정합니다.
+            
+            **2. 종부세 명의별 공제액** - 단독명의 1주택(12억), 부부 공동명의 1주택(각 9억씩 총 18억), 다주택자(9억) 기준을 적용했습니다.
+            
+            **3. 다주택자 종부세 산출 한계 (중요)** - 본 계산기의 종부세 견적은 유저의 '기존 보유 주택 공시가격'을 알 수 없으므로, **"현재 입력한 단일 물건"**만을 기준으로 산출된 참고용 데이터입니다. 다주택자의 경우 실제 합산 고지액과 크게 다를 수 있습니다.
+            
+            **4. 공정시장가액비율** - 재산세(1주택 43~45%, 다주택 60%), 종부세(60%) 일괄 적용
+            
+            **5. 특례세율** - 1주택자 9억 이하 재산세 특례세율(-0.05%p) 자동 적용
+            
+            **6. 세부담상한** - 전년도 세액 부재로 인해 **상한선(105~150%) 미적용(MAX치)** 기준입니다.
+            """)
 
 # ==========================================
 # 5. 메인 네비게이션
@@ -460,52 +461,35 @@ def run_tax_app():
 def main():
     st.markdown("""
     <style>
-        .block-container {
-            padding-top: 3rem !important; 
-            padding-bottom: 1rem !important;
-        }
+        .block-container { padding-top: 3rem !important; }
         div[data-baseweb="tab-list"] { gap: 5px; }
         button[data-baseweb="tab"] {
-            font-size: 16px !important;
-            font-weight: bold !important;
-            background-color: #f0f2f6 !important;
-            border-radius: 12px 12px 0px 0px !important;
-            padding: 10px 15px !important;
-            color: #555555 !important;
-            border-bottom: none !important;
+            font-size: 16px !important; font-weight: bold !important;
+            background-color: #f0f2f6 !important; border-radius: 12px 12px 0px 0px !important;
+            padding: 10px 15px !important; color: #555555 !important;
         }
-        button[aria-selected="true"] {
-            background-color: #FF4B4B !important;
-            color: white !important;
-        }
-        @media screen and (max-width: 430px) {
-            button[data-baseweb="tab"] {
-                font-size: 13px !important;
-                padding: 8px 10px !important;
-            }
-        }
+        button[aria-selected="true"] { background-color: #FF4B4B !important; color: white !important; }
+        @media screen and (max-width: 430px) { button[data-baseweb="tab"] { font-size: 13px !important; } }
     </style>
     """, unsafe_allow_html=True)
 
     with st.sidebar:
         st.title("⚙️ 프롭테크 메뉴")
-        total_visits, daily_visits = update_and_get_visitor_count()
+        total, daily = update_and_get_visitor_count()
         st.markdown("---")
-        st.subheader("📊 방문자 통계")
-        col1, col2 = st.columns(2)
-        col1.metric("오늘 방문자", f"{daily_visits} 명")
-        col2.metric("총 방문자", f"{total_visits} 명")
-        st.markdown("---")
+        c1, c2 = st.columns(2)
+        c1.metric("오늘 방문", f"{daily} 명")
+        c2.metric("총 방문", f"{total} 명")
 
-    st.markdown("<h1 style='text-align: center; color: #1E3A8A; margin-top: 0px;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #555555; font-size: 16px; margin-bottom: 20px;'>실거래가 분석부터 취득세 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 세금 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["🏠 실거래가/전세가율", "💰 취득세 계산"])
+    tab1, tab2 = st.tabs(["🏠 실거래가/전세가율", "💰 취득세/보유세 계산"])
     
-    with tab1:
+    with tab1: 
         run_real_estate_app()
         
-    with tab2:
+    with tab2: 
         run_tax_app()
         
     st.markdown("---")
@@ -513,6 +497,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
