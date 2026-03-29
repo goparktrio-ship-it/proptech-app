@@ -131,8 +131,8 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
 # 3. 화면 구성 모듈 (앱 1: 실거래가 및 전세가율)
 # ==========================================
 def run_real_estate_app():
-    # 🚨 1. 헤더 글자 통일!
-    st.header("🏠 실거래가/전세가율")
+    # 🚨 1. 크기 축소: st.header -> st.subheader 로 변경!
+    st.subheader("🏠 실거래가/전세가율")
     st.markdown("#### 🔍 검색 조건 설정")
     
     col1, col2 = st.columns(2)
@@ -160,7 +160,6 @@ def run_real_estate_app():
                     st.success("✅ 데이터 조회를 완료했습니다!")
 
         elif category == "전세가율(실투자금) 분석":
-            # 🚨 2. 스피너 텍스트 줄이기
             with st.spinner(f'{selected_gu} 데이터 융합 분석 중...'):
                 df_trade, err_trade = fetch_real_estate_data("매매", lawd_cd, deal_ym, SERVICE_KEY)
                 df_rent, err_rent = fetch_real_estate_data("전월세", lawd_cd, deal_ym, SERVICE_KEY)
@@ -172,7 +171,6 @@ def run_real_estate_app():
                     st.session_state['data_trade'] = df_trade
                     st.session_state['data_rent'] = df_rent
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
-                    # 🚨 3. 성공 메시지 텍스트 줄이기
                     st.success("✅ 전세가율 계산 완료!")
 
     # ==============================
@@ -266,9 +264,10 @@ def run_real_estate_app():
                     year_month_str = f"{info['ym'][:4]}년 {int(info['ym'][4:]):d}월"
 
                     st.markdown("---")
-                    st.subheader(f"📊 {info['gu']} 전세가율 상위 단지 랭킹")
                     
-                    # 🚨 4. 정보 안내문 줄바꿈 적용! (\n\n 으로 확실하게 나눕니다)
+                    # 🚨 2. '랭킹' 단어 삭제 및 글자 크기 축소 (st.subheader -> st.markdown("#### ..."))
+                    st.markdown(f"#### 📊 {info['gu']} 전세가율 상위 단지")
+                    
                     st.info(f"💡 **분석 기간:** {year_month_str} 한 달간\n\n💡 **매칭 조건:** 동일 단지, **동일 면적(평수)**에서 매매와 전세가 모두 거래된 경우만 분석")
                     
                     dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
@@ -417,4 +416,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
