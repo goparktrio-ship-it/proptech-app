@@ -138,7 +138,6 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
     
     return acquisition_tax, edu_tax, rural_tax, total_tax, tax_rate
 
-# 🚨 종부세 누진세율 계산 도우미 함수 (단독/공동명의 중복 코드 제거용)
 def get_comp_tax_amount(tax_base):
     if tax_base <= 0: return 0
     if tax_base <= 300000000: return tax_base * 0.005
@@ -146,11 +145,9 @@ def get_comp_tax_amount(tax_base):
     elif tax_base <= 1200000000: return 3600000 + (tax_base - 600000000) * 0.01
     else: return 9600000 + (tax_base - 1200000000) * 0.013 
 
-# 🚨 공동명의(is_joint) 변수 추가 반영!
 def calculate_holding_tax(official_price_manwon, homes_count, is_joint):
     official_price = official_price_manwon * 10000 
 
-    # 1. 재산세 계산 (물건 중심이므로 명의 무관)
     is_special = (homes_count == "1주택" and official_price_manwon <= 90000)
 
     if homes_count == "1주택":
@@ -177,17 +174,13 @@ def calculate_holding_tax(official_price_manwon, homes_count, is_joint):
     edu_tax_prop = prop_tax * 0.2
     total_prop_tax = prop_tax + city_tax + edu_tax_prop
 
-    # 2. 종합부동산세 계산 (🚨 공동명의 분리 로직 적용)
     if is_joint:
-        # 공동명의 50:50 -> 공시가격을 반으로 쪼개고, 각자 9억씩 공제받음 (총 18억 효과)
         per_person_price = official_price / 2
-        per_person_deduction = 900000000 # 인당 9억 공제
+        per_person_deduction = 900000000 
         tax_base_comp_per_person = max(0, per_person_price - per_person_deduction) * 0.60
-        
         comp_tax_per_person = get_comp_tax_amount(tax_base_comp_per_person)
-        comp_tax = comp_tax_per_person * 2 # 다시 2명분으로 합산
+        comp_tax = comp_tax_per_person * 2 
     else:
-        # 단독명의 -> 1주택은 12억, 다주택은 9억 통으로 공제
         deduction = 1200000000 if homes_count == "1주택" else 900000000
         tax_base_comp = max(0, official_price - deduction) * 0.60 
         comp_tax = get_comp_tax_amount(tax_base_comp)
@@ -372,12 +365,14 @@ def run_real_estate_app():
 # 4. 화면 구성 모듈 (앱 2: 취득세/보유세 계산)
 # ==========================================
 def run_tax_app():
-    st.header("💰 주택 취득세 및 연간 보유세 계산")
+    # 🚨 1번 탭의 st.subheader("🏠 실거래가/전세가율")와 동일한 크기로 조정
+    st.subheader("💰 주택 취득세 및 연간 보유세 계산")
     st.info("📌 **적용 기준: 2026년 최신 세법 기준 (재산세/종부세 포함)**")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("1. 매수할 물건 정보")
+        # 🚨 1번 탭의 st.markdown("#### 🔍 검색 조건 설정")과 동일한 크기로 조정
+        st.markdown("#### 🏢 1. 매수할 물건 정보")
         selected_area = st.selectbox("**어느 지역의 아파트를 매수하시나요?**", ALL_AREAS)
         is_regulated = selected_area in REGULATED_AREAS
         price_input = st.number_input("**매매가 (만원 단위)**", min_value=1000, value=80000, step=1000)
@@ -385,10 +380,10 @@ def run_tax_app():
         is_large = st.checkbox("전용면적 85㎡ 초과 (농특세 부과)")
 
     with col2:
-        st.subheader("2. 매수자 명의 및 주택 수")
+        # 🚨 동일하게 markdown h4 크기로 조정
+        st.markdown("#### 👤 2. 매수자 명의 및 주택 수")
         homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
         
-        # 🚨 공동명의 체크박스 신규 추가!
         is_joint = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**")
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -418,11 +413,11 @@ def run_tax_app():
     if st.button("세금 정밀 계산하기 🚀", use_container_width=True):
         acq_tax, edu_tax, rural_tax, total_tax, final_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
         
-        # 🚨 엔진에 공동명의 여부(is_joint) 데이터 넘겨주기
         off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
         
         st.markdown("---")
-        st.subheader("📊 1. 예상 취득세 결과")
+        # 🚨 결과 타이틀도 일관성 있게 h4 사이즈로 변경
+        st.markdown("#### 📊 1. 예상 취득세 결과")
         st.warning(f"**적용 본세율:** {final_rate * 100:.1f}%")
         c1, c2, c3 = st.columns(3)
         c1.metric("① 취득세", f"{int(acq_tax):,} 원")
@@ -431,7 +426,8 @@ def run_tax_app():
         st.success(f"💸 **총 납부 예상 취득세: {int(total_tax):,} 원**")
 
         st.markdown("---")
-        st.subheader("📊 2. 예상 연간 보유세 결과")
+        # 🚨 결과 타이틀 조정
+        st.markdown("#### 📊 2. 예상 연간 보유세 결과")
         st.info(f"💡 **기준 공시가격:** {int(off_p_won):,} 원")
         h1, h2, h3 = st.columns(3)
         h1.metric("① 재산세", f"{int(prop_p_won):,} 원")
@@ -497,4 +493,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
