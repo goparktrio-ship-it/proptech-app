@@ -365,13 +365,12 @@ def run_real_estate_app():
 # 4. 화면 구성 모듈 (앱 2: 취득세/보유세 계산)
 # ==========================================
 def run_tax_app():
-    # 🚨 1번 탭의 st.subheader("🏠 실거래가/전세가율")와 동일한 크기로 조정
-    st.subheader("💰 주택 취득세 및 연간 보유세 계산")
+    # 🚨 타이틀을 탭 이름과 동일하게 수정 완료!
+    st.subheader("💰 취득세/보유세 계산")
     st.info("📌 **적용 기준: 2026년 최신 세법 기준 (재산세/종부세 포함)**")
     
     col1, col2 = st.columns(2)
     with col1:
-        # 🚨 1번 탭의 st.markdown("#### 🔍 검색 조건 설정")과 동일한 크기로 조정
         st.markdown("#### 🏢 1. 매수할 물건 정보")
         selected_area = st.selectbox("**어느 지역의 아파트를 매수하시나요?**", ALL_AREAS)
         is_regulated = selected_area in REGULATED_AREAS
@@ -380,7 +379,6 @@ def run_tax_app():
         is_large = st.checkbox("전용면적 85㎡ 초과 (농특세 부과)")
 
     with col2:
-        # 🚨 동일하게 markdown h4 크기로 조정
         st.markdown("#### 👤 2. 매수자 명의 및 주택 수")
         homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
         
@@ -416,7 +414,6 @@ def run_tax_app():
         off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
         
         st.markdown("---")
-        # 🚨 결과 타이틀도 일관성 있게 h4 사이즈로 변경
         st.markdown("#### 📊 1. 예상 취득세 결과")
         st.warning(f"**적용 본세율:** {final_rate * 100:.1f}%")
         c1, c2, c3 = st.columns(3)
@@ -426,7 +423,6 @@ def run_tax_app():
         st.success(f"💸 **총 납부 예상 취득세: {int(total_tax):,} 원**")
 
         st.markdown("---")
-        # 🚨 결과 타이틀 조정
         st.markdown("#### 📊 2. 예상 연간 보유세 결과")
         st.info(f"💡 **기준 공시가격:** {int(off_p_won):,} 원")
         h1, h2, h3 = st.columns(3)
@@ -493,5 +489,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
+    
 
