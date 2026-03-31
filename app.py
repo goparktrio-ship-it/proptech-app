@@ -367,7 +367,9 @@ def run_real_estate_app():
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
         
     category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 최고가 분석"], horizontal=True)
-    submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True)
+    
+    # 🚨 [UI 강조] 데이터 분석 버튼 강조
+    submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True, type="primary")
 
     if submit_btn:
         if category in ["매매 실거래", "전월세 실거래"]:
@@ -569,7 +571,9 @@ def run_tax_app():
             st.write(f"현재 자동 추정된 공시가격: **{official_price_input:,}만 원**")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("세금 정밀 계산하기 🚀", use_container_width=True, key="btn_tax"):
+    
+    # 🚨 [UI 강조] 세금 계산 버튼 강조
+    if st.button("세금 정밀 계산하기 🚀", use_container_width=True, key="btn_tax", type="primary"):
         acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
         off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
         
@@ -581,20 +585,33 @@ def run_tax_app():
         else:
             st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**")
             
+        # 🚨 [UI 강조] 결과 가공 (세부사항 작게, 총합 크게)
         c1, c2, c3 = st.columns(3)
-        c1.metric("① 취득세", f"{int(acq_tax):,} 원")
-        c2.metric("② 지방교육세", f"{int(edu_tax):,} 원")
-        c3.metric("③ 농특세", f"{int(rural_tax):,} 원")
-        st.success(f"💸 **총 납부 예상 취득세: {int(total_tax):,} 원**")
+        with c1: st.markdown(f"<small>① 취득세</small><br><b>{int(acq_tax):,} 원</b>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<small>② 지방교육세</small><br><b>{int(edu_tax):,} 원</b>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<small>③ 농특세</small><br><b>{int(rural_tax):,} 원</b>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style="background-color: #fef9c3; padding: 20px; border-radius: 15px; border-left: 10px solid #facc15; margin-top: 15px;">
+            <p style="margin: 0; color: #854d0e; font-weight: bold;">💸 총 납부 예상 취득세</p>
+            <h2 style="margin: 0; color: #ca8a04; font-size: 2.2rem;">{int(total_tax):,} 원</h2>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("#### 📊 2. 예상 연간 보유세 결과")
         st.info(f"💡 **기준 공시가격:** {int(off_p_won):,} 원")
+        
         h1, h2, h3 = st.columns(3)
-        h1.metric("① 재산세", f"{int(prop_p_won):,} 원")
-        h2.metric("② 종부세", f"{int(comp_p_won):,} 원")
-        h3.metric("③ 총 보유세", f"{int(prop_p_won + comp_p_won):,} 원")
-        st.error(f"💸 **매년 납부 예상 보유세: {int(prop_p_won + comp_p_won):,} 원**")
+        with h1: st.markdown(f"<small>① 재산세</small><br><b>{int(prop_p_won):,} 원</b>", unsafe_allow_html=True)
+        with h2: st.markdown(f"<small>② 종부세</small><br><b>{int(comp_p_won):,} 원</b>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style="background-color: #fee2e2; padding: 20px; border-radius: 15px; border-left: 10px solid #ef4444; margin-top: 15px;">
+            <p style="margin: 0; color: #991b1b; font-weight: bold;">💸 매년 납부 예상 총 보유세</p>
+            <h2 style="margin: 0; color: #dc2626; font-size: 2.2rem;">{int(prop_p_won + comp_p_won):,} 원</h2>
+        </div>
+        """, unsafe_allow_html=True)
 
         with st.expander("📝 산출 기준 안내"):
             st.markdown("""
@@ -700,7 +717,7 @@ def run_capital_gains_tax_app():
         else:
             st.success(msg_buy)
             
-        st.markdown("**[매도 시점 규제 확인]**")
+        st.markdown("**[매도 시점 규확인]**")
         sell_ym = st.text_input("**매도(예정)년월 (YYYYMM)**", value="202604")
         is_reg_sell, msg_sell = check_regulation_status(cgt_area, sell_ym, mode="sell")
         
@@ -732,7 +749,8 @@ def run_capital_gains_tax_app():
 
     st.markdown("---")
     
-    if st.button("양도세 정밀 계산하기 🚀", use_container_width=True, key="btn_cgt"):
+    # 🚨 [UI 강조] 양도세 계산 버튼 강조
+    if st.button("양도세 정밀 계산하기 🚀", use_container_width=True, key="btn_cgt", type="primary"):
         if holding_period <= 0:
             st.error("보유 기간은 0년보다 커야 합니다.")
         else:
@@ -744,27 +762,29 @@ def run_capital_gains_tax_app():
             st.markdown(f"#### 📊 양도소득세 산출 결과")
             st.info(f"💡 **적용 상태:** {status_msg}")
             
+            # 🚨 [UI 강조] 결과 가공 (세부사항 작게, 총합 크게)
             c1, c2, c3 = st.columns(3)
-            c1.metric("① 총 양도차익", f"{int(gain):,} 원")
-            c2.metric("② 과세대상 양도차익", f"{int(tax_gain):,} 원")
-            c3.metric(f"③ 장기보유특별공제 ({deduct_rate * 100:.0f}%)", f"- {int(deduct_amt):,} 원")
+            with c1: st.markdown(f"<small>① 총 양도차익</small><br><b>{int(gain):,} 원</b>", unsafe_allow_html=True)
+            with c2: st.markdown(f"<small>② 과세대상 차익</small><br><b>{int(tax_gain):,} 원</b>", unsafe_allow_html=True)
+            with c3: st.markdown(f"<small>③ 장특공제({deduct_rate * 100:.0f}%)</small><br><b>- {int(deduct_amt):,} 원</b>", unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            c4, c5, c6 = st.columns(3)
+            c4, c5 = st.columns(2)
+            tb_label = "④ 과표 (1인 기준)" if is_joint_sell else "④ 과세표준"
+            with c4: st.markdown(f"<small>{tb_label}</small><br><b>{int(tax_base):,} 원</b>", unsafe_allow_html=True)
+            with c5: st.markdown(f"<small>⑤ 적용 최고세율</small><br><b>{rate * 100:.1f}%</b>", unsafe_allow_html=True)
             
-            tb_label = "④ 과세표준 (1인 기준)" if is_joint_sell else "④ 과세표준 (기본공제 반영)"
-            c4.metric(tb_label, f"{int(tax_base):,} 원")
-            c5.metric("⑤ 적용 최고세율", f"{rate * 100:.1f}%")
-            
-            if is_joint_sell:
-                st.error(f"💸 **⑥ 총 납부 예상 양도소득세 (부부 합산): {int(total_tax):,} 원** (지방세 포함)")
-            else:
-                st.error(f"💸 **⑥ 총 납부 예상 양도소득세: {int(total_tax):,} 원** (지방세 포함)")
+            res_label = "부부 합산 양도세 총액" if is_joint_sell else "납부 예상 양도세 총액"
+            st.markdown(f"""
+            <div style="background-color: #fee2e2; padding: 20px; border-radius: 15px; border-left: 10px solid #ef4444; margin-top: 15px;">
+                <p style="margin: 0; color: #991b1b; font-weight: bold;">💸 {res_label} (지방세 포함)</p>
+                <h2 style="margin: 0; color: #dc2626; font-size: 2.2rem;">{int(total_tax):,} 원</h2>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🚨 [UI 변경] 일시적 2주택 비과세 "1·2·3 법칙" 추가 패치!
     with st.expander("🔍 1세대 1주택 & 일시적 2주택 비과세 요건 (핵심 요약)"):
         st.markdown("""
         **📌 1세대 1주택 비과세**
@@ -782,9 +802,23 @@ def run_capital_gains_tax_app():
 # 6. 메인 네비게이션
 # ==========================================
 def main():
+    # 🚨 [CSS 강조] 버튼 색상 빨간색으로 고정 및 가독성 패치
     st.markdown("""
     <style>
         .block-container { padding-top: 3rem !important; }
+        
+        /* 메인 버튼(Primary) 색상 변경: 강렬한 레드 */
+        div.stButton > button[kind="primary"] {
+            background-color: #FF4B4B !important;
+            color: white !important;
+            font-weight: bold !important;
+            font-size: 18px !important;
+            border-radius: 10px !important;
+            padding: 0.5rem 1rem !important;
+            border: none !important;
+        }
+        
+        /* 탭 가독성 */
         div[data-baseweb="tab-list"] { gap: 5px; }
         button[data-baseweb="tab"] {
             font-size: 16px !important; font-weight: bold !important;
@@ -792,7 +826,12 @@ def main():
             padding: 10px 15px !important; color: #555555 !important;
         }
         button[aria-selected="true"] { background-color: #FF4B4B !important; color: white !important; }
-        @media screen and (max-width: 430px) { button[data-baseweb="tab"] { font-size: 13px !important; } }
+        
+        /* 모바일 폰트 최적화 */
+        @media screen and (max-width: 430px) { 
+            button[data-baseweb="tab"] { font-size: 13px !important; } 
+            h2 { font-size: 1.6rem !important; }
+        }
     </style>
     """, unsafe_allow_html=True)
 
