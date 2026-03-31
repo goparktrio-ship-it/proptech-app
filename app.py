@@ -44,8 +44,13 @@ def update_and_get_visitor_count():
 # ==========================================
 # 1. 글로벌 환경 설정 및 상수 정의
 # ==========================================
-# 🚨 본인의 '일반 인증키(Encoding)'를 여기에 쏙 넣어주세요!
-SERVICE_KEY = "6185985620d6525b8af9628d96468b183acefb64c58135f6cae9fc04f844fe6a"
+# 🚨 [보안 패치] Streamlit Secrets를 통해 API 키를 안전하게 숨겨서 가져옵니다!
+if "DATA_API_KEY" in st.secrets:
+    SERVICE_KEY = st.secrets["DATA_API_KEY"]
+else:
+    # 만약 클라우드에 Secrets 설정이 안 되어있거나, 로컬(내 PC)에서 임시로 테스트할 때만 작동합니다.
+    # (주의: 실제 키를 여기에 적은 채로 GitHub에 Public으로 올리지 마세요!)
+    SERVICE_KEY = "여기에_인증키를_넣어주세요"
 
 API_URLS = {
     "매매": "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade",
@@ -62,12 +67,12 @@ GU_CODES = {
 
 REGULATED_AREAS = [
     "서울특별시 (25개 구 전 지역)", "경기 과천시", "경기 광명시", "경기 하남시", "경기 의왕시",
-    "경기 성남시 (분당/수정/중원구)", "경기 수원시 (영통/장안/팔달구)", "경기 안양시 (동안구)", "경기 용인시 (수지구)"
+    "경기 성남시 (분당/수정/중원구)", "경기 수원시 (영통/장안/팔달구)", "경기 안양시 (동안구)", "경기 용인시 (수지구)", "경기 화성시 (동탄 등)"
 ]
 ALL_AREAS = REGULATED_AREAS + ["그 외 수도권 (비규제지역)", "그 외 지방 (비규제지역)"]
 
 # ==========================================
-# 2. 백엔드 데이터 수집 엔진
+# 2. 백엔드 데이터 수집 및 세금 계산 엔진
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_real_estate_data(category, lawd_cd, deal_ym, service_key):
@@ -136,7 +141,7 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
     rural_tax = price * rural_rate
     total_tax = acquisition_tax + edu_tax + rural_tax
     
-    return acquisition_tax, edu_tax, rural_tax, total_tax, tax_rate
+    return acquisition_tax, edu_tax, rural_tax, total_tax, tax_rate, base_rate
 
 def get_comp_tax_amount(tax_base):
     if tax_base <= 0: return 0
@@ -192,6 +197,163 @@ def calculate_holding_tax(official_price_manwon, homes_count, is_joint):
         total_comp_tax = 0
 
     return official_price, total_prop_tax, total_comp_tax
+
+def check_regulation_status(area_type, yyyymm_str, mode="buy"):
+    try:
+        ym = int(yyyymm_str)
+    except:
+        return False, "날짜 형식을 숫자로 정확히 입력해주세요. (예: 202105)"
+
+    if ym < 201708:
+        msg = "비규제 시기"
+        is_reg = False
+    elif "강남구" in area_type:
+        msg = "지속적 조정대상지역 유지"
+        is_reg = True
+    elif "21개 자치구" in area_type or "23.1.5 해제" in area_type:
+        if 201708 <= ym <= 202212:
+            msg = "과거 규제지역 지정 시기"
+            is_reg = True
+        elif 202301 <= ym <= 202509:
+            msg = "2023.1.5 규제 전면 해제 시기"
+            is_reg = False
+        elif ym >= 202510:
+            msg = "2025.10.15 대책 재지정 시기"
+            is_reg = True
+    elif "22.11.14 해제" in area_type:
+        if 201708 <= ym <= 202211:
+            msg = "과거 규제지역 지정 시기"
+            is_reg = True
+        elif 202212 <= ym <= 202509:
+            msg = "22.11.14 1차 규제 해제 시기"
+            is_reg = False
+        elif ym >= 202510:
+            msg = "2025.10.15 대책 재지정 시기"
+            is_reg = True
+    elif "과거 규제 이력" in area_type:
+        if 201708 <= ym <= 202211:
+            msg = "과거 규제지역 지정 시기"
+            is_reg = True
+        elif ym >= 202212:
+            msg = "규제 해제 후 현재까지 비규제 유지 (25.10 재지정 제외)"
+            is_reg = False
+    else:
+        msg = "전면 비규제 지역"
+        is_reg = False
+
+    if mode == "buy":
+        if is_reg:
+            return True, f"🚨 {msg} 취득 → 1주택 비과세 받으려면 **거주요건 2년 필수**"
+        else:
+            if ym < 201708:
+                return False, f"✅ 2017.8.2 대책 이전 취득 → **거주요건 면제** (보유만 해도 됨)"
+            else:
+                return False, f"✅ {msg} 취득 → **거주요건 면제** (보유만 해도 됨)"
+    else:
+        if is_reg:
+            return True, f"🚨 {msg} 양도 → **다주택자 양도세 중과 대상 (세율 폭탄 주의)**"
+        else:
+            return False, f"✅ {msg} 양도 → **다주택자 양도세 중과 배제 (일반세율 적용)**"
+
+def calculate_capital_gains_tax(sell_price_m, buy_price_m, expenses_m, holding_y, residence_y, homes_count, is_reg_buy, is_reg_sell, is_suspension=False, is_joint_sell=False):
+    sell_price = sell_price_m * 10000
+    buy_price = buy_price_m * 10000
+    expenses = expenses_m * 10000
+    
+    gain = sell_price - buy_price - expenses
+    if gain <= 0:
+        return 0, 0, 0, 0, 0, 0, "양도차익 없음 (세금 0원)", 0.0
+
+    is_1house = homes_count in ["1주택", "일시적 2주택"]
+    is_exempt_eligible = False
+    
+    if is_1house and holding_y >= 2.0:
+        if is_reg_buy:
+            if residence_y >= 2.0: is_exempt_eligible = True
+        else:
+            is_exempt_eligible = True
+
+    if is_exempt_eligible:
+        if sell_price_m <= 120000:
+            return gain, 0, 0, 0, 0, 0, "✅ 1세대 1주택 비과세 대상 (납부세액 0원)", 0.0
+        else:
+            taxable_gain = gain * ((sell_price - 1200000000) / sell_price)
+            status_msg = "⚠️ 1주택 비과세 요건 충족 (단, 고가주택 12억 초과분 과세)"
+    else:
+        taxable_gain = gain
+        status_msg = "🚨 일반 과세 (비과세 요건 미충족 또는 다주택자)"
+
+    deduction_rate = 0.0
+    if holding_y >= 3.0:
+        if homes_count in ["2주택", "3주택 이상"] and is_reg_sell and not is_suspension:
+            deduction_rate = 0.0  
+            status_msg += " + 장특공 배제"
+        elif is_exempt_eligible:
+            h_rate = min(int(holding_y) * 0.04, 0.40)
+            r_rate = min(int(residence_y) * 0.04, 0.40) if residence_y >= 2.0 else 0.0
+            deduction_rate = h_rate + r_rate
+        else:
+            deduction_rate = min(int(holding_y) * 0.02, 0.30)
+            
+    if is_suspension and homes_count in ["2주택", "3주택 이상"] and is_reg_sell:
+        status_msg += " (✨ 중과 유예 적용: 일반세율 및 장특공 부활)"
+            
+    deduction_amount = taxable_gain * deduction_rate
+    net_gain = taxable_gain - deduction_amount  
+    
+    if is_joint_sell:
+        net_gain_per_person = net_gain / 2
+        calc_tax_base = net_gain_per_person - 2500000
+        if calc_tax_base <= 0:
+            return gain, taxable_gain, deduction_amount, 0, 0, 0, status_msg + " (과표 0원)", deduction_rate
+        status_msg = "🤝 [부부 공동명의 절세 적용] " + status_msg
+    else:
+        calc_tax_base = net_gain - 2500000
+        if calc_tax_base <= 0:
+            return gain, taxable_gain, deduction_amount, 0, 0, 0, status_msg + " (과표 0원)", deduction_rate
+
+    if calc_tax_base <= 14000000: rate, prog_deduct = 0.06, 0
+    elif calc_tax_base <= 50000000: rate, prog_deduct = 0.15, 1080000
+    elif calc_tax_base <= 88000000: rate, prog_deduct = 0.24, 5580000
+    elif calc_tax_base <= 150000000: rate, prog_deduct = 0.35, 15260000
+    elif calc_tax_base <= 300000000: rate, prog_deduct = 0.38, 19760000
+    elif calc_tax_base <= 500000000: rate, prog_deduct = 0.40, 25760000
+    elif calc_tax_base <= 1000000000: rate, prog_deduct = 0.42, 35760000
+    else: rate, prog_deduct = 0.45, 65760000
+
+    surcharge = 0.0
+    
+    if is_reg_sell and not is_suspension:
+        if homes_count == "2주택": 
+            surcharge = 0.20
+            status_msg += " 🚨 [2주택 중과 +20%p]"
+        elif homes_count == "3주택 이상": 
+            surcharge = 0.30
+            status_msg += " 🚨 [3주택 중과 +30%p]"
+
+    final_rate = rate + surcharge
+    calculated_tax = (calc_tax_base * final_rate) - prog_deduct
+
+    short_term_tax = 0
+    if holding_y < 1.0:
+        short_term_tax = calc_tax_base * 0.70  
+    elif holding_y < 2.0:
+        short_term_tax = calc_tax_base * 0.60  
+
+    if short_term_tax > calculated_tax:
+        calculated_tax = short_term_tax
+        final_rate = 0.70 if holding_y < 1.0 else 0.60
+        status_msg += " 💥 (단기양도 중과가 더 커서 단기세율 최우선 적용)"
+
+    local_tax = calculated_tax * 0.1
+    total_tax_per_person = calculated_tax + local_tax
+    
+    if is_joint_sell:
+        total_tax = total_tax_per_person * 2
+    else:
+        total_tax = total_tax_per_person
+
+    return gain, taxable_gain, deduction_amount, calc_tax_base, final_rate, total_tax, status_msg, deduction_rate
 
 # ==========================================
 # 3. 화면 구성 모듈 (앱 1: 실거래가/전세가율)
@@ -365,7 +527,6 @@ def run_real_estate_app():
 # 4. 화면 구성 모듈 (앱 2: 취득세/보유세 계산)
 # ==========================================
 def run_tax_app():
-    # 🚨 타이틀을 탭 이름과 동일하게 수정 완료!
     st.subheader("💰 취득세/보유세 계산")
     st.info("📌 **적용 기준: 2026년 최신 세법 기준 (재산세/종부세 포함)**")
     
@@ -382,24 +543,27 @@ def run_tax_app():
         st.markdown("#### 👤 2. 매수자 명의 및 주택 수")
         homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
         
+        with st.expander("❓ 내 주택수 정확히 세는 법 (취득세 기준)"):
+            st.markdown("""
+            - **👨‍👩‍👧‍👦 1세대:** 주민등록표상 가족 합산 (배우자/미혼 30세 미만 자녀 포함)
+            - **🎫 분양권/입주권:** **'20. 8. 12. 이후** 취득분부터 포함
+            - **🏢 주거용 오피스텔:** **'20. 8. 12. 이후** 취득분부터 포함 (시가 1억 이하 제외)
+            - **🛡️ 제외:** 시가표준액 1억 이하 주택, 농어촌 주택 등
+            """)
+            
         is_joint = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**")
         
         st.markdown("<br>", unsafe_allow_html=True)
-        
         if is_joint and homes_count == "1주택":
             st.info("💡 공동명의 1주택: 각자 9억씩 총 **18억 원의 종부세 기본공제** 혜택이 적용됩니다.")
-            
         if is_regulated: st.error(f"🚨 **{selected_area}**는 조정대상지역입니다.")
         else: st.success(f"✅ **{selected_area}**는 비규제지역입니다.")
 
     st.markdown("---")
-    
     default_official_price = int(price_input * 0.7)
     
     with st.expander("⚙️ 상세 설정 (공시가격 직접 수정)"):
         st.markdown("보유세는 매매가가 아닌 '공시가격' 기준입니다. 기본적으로 **매매가의 70%**로 자동 계산됩니다.")
-        st.markdown("🌐 [국토부 공시가격 확인하기](https://www.realtyprice.kr/)")
-        
         use_manual = st.checkbox("**☑️ 정확한 공시가격을 직접 입력하겠습니다.**")
         if use_manual:
             official_price_input = st.number_input("**정확한 공시가격 (만원 단위)**", min_value=100, value=default_official_price, step=1000)
@@ -408,14 +572,18 @@ def run_tax_app():
             st.write(f"현재 자동 추정된 공시가격: **{official_price_input:,}만 원**")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("세금 정밀 계산하기 🚀", use_container_width=True):
-        acq_tax, edu_tax, rural_tax, total_tax, final_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
-        
+    if st.button("세금 정밀 계산하기 🚀", use_container_width=True, key="btn_tax"):
+        acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
         off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
         
         st.markdown("---")
         st.markdown("#### 📊 1. 예상 취득세 결과")
-        st.warning(f"**적용 본세율:** {final_rate * 100:.1f}%")
+        
+        if final_rate > base_rate:
+            st.error(f"🚨 **적용 본세율:** {final_rate * 100:.1f}% **(다주택 중과세율 적용)**")
+        else:
+            st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**")
+            
         c1, c2, c3 = st.columns(3)
         c1.metric("① 취득세", f"{int(acq_tax):,} 원")
         c2.metric("② 지방교육세", f"{int(edu_tax):,} 원")
@@ -429,26 +597,156 @@ def run_tax_app():
         h1.metric("① 재산세", f"{int(prop_p_won):,} 원")
         h2.metric("② 종부세", f"{int(comp_p_won):,} 원")
         h3.metric("③ 총 보유세", f"{int(prop_p_won + comp_p_won):,} 원")
-        
         st.error(f"💸 **매년 납부 예상 보유세: {int(prop_p_won + comp_p_won):,} 원**")
 
         with st.expander("📝 산출 기준 안내"):
             st.markdown("""
-            **1. 공시가격 현실화율** - 별도 입력이 없으면 **매매가의 70%**를 공시가로 자동 추정합니다.
-            
-            **2. 종부세 명의별 공제액** - 단독명의 1주택(12억), 부부 공동명의 1주택(각 9억씩 총 18억), 다주택자(9억) 기준을 적용했습니다.
-            
-            **3. 다주택자 종부세 산출 한계 (중요)** - 본 계산기의 종부세 견적은 유저의 '기존 보유 주택 공시가격'을 알 수 없으므로, **"현재 입력한 단일 물건"**만을 기준으로 산출된 참고용 데이터입니다. 다주택자의 경우 실제 합산 고지액과 크게 다를 수 있습니다.
-            
-            **4. 공정시장가액비율** - 재산세(1주택 43~45%, 다주택 60%), 종부세(60%) 일괄 적용
-            
-            **5. 특례세율** - 1주택자 9억 이하 재산세 특례세율(-0.05%p) 자동 적용
-            
-            **6. 세부담상한** - 전년도 세액 부재로 인해 **상한선(105~150%) 미적용(MAX치)** 기준입니다.
-            """)
+            **1. 다주택 취득세 중과**<br>현행 지방세법에 따라 2주택(조정 8%), 3주택(조정 12%, 비조정 8%), 4주택 이상(12%) 중과세율을 반영합니다.<br><br>
+            **2. 공시가격 현실화율**<br>별도 입력이 없으면 **매매가의 70%**를 공시가로 자동 추정합니다.<br><br>
+            **3. 종부세 명의별 공제액**<br>단독명의 1주택(12억), 부부 공동명의 1주택(각 9억씩 총 18억), 다주택자(9억) 기준을 적용했습니다.<br><br>
+            **4. 다주택자 종부세 산출 한계**<br>본 계산기의 종부세 견적은 유저의 '기존 보유 주택 공시가격'을 알 수 없으므로, **"현재 입력한 단일 물건"**만을 기준으로 산출된 참고용 데이터입니다.<br><br>
+            **5. 공정시장가액비율**<br>재산세(1주택 43~45%, 다주택 60%), 종부세(60%) 일괄 적용했습니다.<br><br>
+            **6. 특례세율**<br>1주택자 9억 이하 재산세 특례세율(-0.05%p)이 자동 적용되었습니다.<br><br>
+            **7. 세부담상한**<br>전년도 세액 부재로 인해 **상한선(105~150%) 미적용(MAX치)** 기준입니다.
+            """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. 메인 네비게이션
+# 5. 화면 구성 모듈 (앱 3: 양도소득세 정밀 입력기)
+# ==========================================
+def run_capital_gains_tax_app():
+    st.subheader("📈 양도소득세 계산 (Beta)")
+    st.info("📌 **매수/매도 시점의 규제지역 여부**를 앱이 자동으로 판독하여 거주요건 및 중과 여부를 체크합니다.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### 🏢 1. 거래 금액 및 기간")
+        sell_price = st.number_input("**매도 금액 (양도가액, 만원)**", min_value=1000, value=150000, step=1000)
+        buy_price = st.number_input("**매수 금액 (취득가액, 만원)**", min_value=1000, value=80000, step=1000)
+        expenses = st.number_input("**필요경비 (중개보수, 수리비 등, 만원)**", min_value=0, value=2000, step=100)
+        
+        profit = sell_price - buy_price - expenses
+        st.caption(f"💡 단순 양도차익: **{profit/10000:.1f}억 원**")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### ⏳ 2. 보유 및 거주 기간")
+        holding_period = st.number_input("**총 보유 기간 (년)**", min_value=0.0, max_value=50.0, value=3.0, step=0.5)
+        residence_period = st.number_input("**총 거주 기간 (년)**", min_value=0.0, max_value=50.0, value=2.0, step=0.5)
+        
+        if residence_period > holding_period:
+            st.error("🚨 거주 기간은 보유 기간을 초과할 수 없습니다.")
+
+    with col2:
+        st.markdown("#### 🚨 3. 자동 규제지역 판독기 (2000년~현재)")
+        
+        cgt_area = st.selectbox("**📍 양도 물건 지역**", [
+            "서울 강남구/서초/송파/용산 (지속 유지)",
+            "서울 그 외 21개 자치구 (23.1.5 해제 / 25.10.15 재지정)",
+            "과천, 광명, 하남, 성남분당/수정 (23.1.5 해제 / 25.10.15 재지정)",
+            "의왕, 용인수지, 안양동안, 성남중원, 수원영통/장안/팔달 (22.11.14 해제 / 25.10.15 재지정)",
+            "화성동탄, 구리, 세종 등 과거 규제 이력 지역 (현재 비규제)",
+            "전국 전면 비규제 지역 (단 한 번도 규제된 적 없는 지역)"
+        ])
+        
+        st.markdown("**[매수 시점 규제 확인]**")
+        buy_ym = st.text_input("**매수년월 (YYYYMM)**", value="202105")
+        is_reg_buy, msg_buy = check_regulation_status(cgt_area, buy_ym, mode="buy")
+        
+        is_pinset_buy = st.checkbox("💡 단, 매수 당시 우리 동네(읍/면/동)는 '핀셋 규제'로 지정 제외되었습니다.")
+        if is_pinset_buy:
+            is_reg_buy = False
+            msg_buy = "✅ 핀셋 규제 제외 지역 취득 → **거주요건 면제** (보유만 해도 됨)"
+
+        if is_reg_buy:
+            st.error(msg_buy)
+        else:
+            st.success(msg_buy)
+            
+        st.markdown("**[매도 시점 규제 확인]**")
+        sell_ym = st.text_input("**매도(예정)년월 (YYYYMM)**", value="202604")
+        is_reg_sell, msg_sell = check_regulation_status(cgt_area, sell_ym, mode="sell")
+        
+        is_pinset_sell = st.checkbox("💡 단, 매도하는 현재 우리 동네는 '핀셋 규제'로 해제되었습니다.")
+        if is_pinset_sell:
+            is_reg_sell = False
+            msg_sell = "✅ 핀셋 규제 제외 지역 양도 → **다주택자 양도세 중과 배제 (일반세율 적용)**"
+
+        if is_reg_sell:
+            st.error(msg_sell)
+        else:
+            st.success(msg_sell)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        homes_count_sell = st.selectbox("**매도 시점 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택 이상"])
+        
+        is_joint_sell = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**", key="cgt_joint")
+        
+        with st.expander("❓ 내 주택수 정확히 세는 법 (양도세 기준)"):
+            st.markdown("""
+            - **👨‍👩‍👧‍👦 1세대:** 실제 생계를 같이 하는 가족 합산 (배우자는 분리해도 1세대)
+            - **🎫 분양권/입주권:** 분양권은 **'21. 1. 1. 이후** 취득분부터 포함 (입주권은 상시 포함)
+            - **🏢 주거용 오피스텔:** 실제 주거용 사용 시 **취득일 무관하게 모두 포함**
+            - **🛡️ 중과 제외:** 수도권/광역시 외 **지방 공시가 3억 이하** 등 제외
+            """)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        is_suspension = st.checkbox("💡 **다주택자 양도세 중과 유예 적용** (2026. 5. 9. 양도분까지)")
+
+    st.markdown("---")
+    
+    if st.button("양도세 정밀 계산하기 🚀", use_container_width=True, key="btn_cgt"):
+        if holding_period <= 0:
+            st.error("보유 기간은 0년보다 커야 합니다.")
+        else:
+            gain, tax_gain, deduct_amt, tax_base, rate, total_tax, status_msg, deduct_rate = calculate_capital_gains_tax(
+                sell_price, buy_price, expenses, holding_period, residence_period, homes_count_sell, is_reg_buy, is_reg_sell, is_suspension, is_joint_sell
+            )
+            
+            st.markdown("---")
+            st.markdown(f"#### 📊 양도소득세 산출 결과")
+            st.info(f"💡 **적용 상태:** {status_msg}")
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("① 총 양도차익", f"{int(gain):,} 원")
+            c2.metric("② 과세대상 양도차익", f"{int(tax_gain):,} 원")
+            c3.metric(f"③ 장기보유특별공제 ({deduct_rate * 100:.0f}%)", f"- {int(deduct_amt):,} 원")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            c4, c5, c6 = st.columns(3)
+            
+            tb_label = "④ 과세표준 (1인 기준)" if is_joint_sell else "④ 과세표준 (기본공제 반영)"
+            c4.metric(tb_label, f"{int(tax_base):,} 원")
+            c5.metric("⑤ 적용 최고세율", f"{rate * 100:.1f}%")
+            
+            if is_joint_sell:
+                st.error(f"💸 **⑥ 총 납부 예상 양도소득세 (부부 합산): {int(total_tax):,} 원** (지방세 포함)")
+            else:
+                st.error(f"💸 **⑥ 총 납부 예상 양도소득세: {int(total_tax):,} 원** (지방세 포함)")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    with st.expander("🔍 내 아파트, 살 때 규제지역이었을까? (상세 지역 리스트 및 연혁)"):
+        st.markdown("""
+        **📌 양도세 1세대 1주택 비과세 핵심 요건**<br>
+        * 2017년 8월 2일 (8.2 대책) 이전에 취득한 주택은 무조건 거주요건이 면제됩니다.<br>
+        * 그 이후, 취득(잔금일) 당시에 해당 지역이 '조정대상지역'이었다면 2년 거주 요건이 필수입니다. 
+        <br><br>
+        **🚨 [2025.10.15 대책] 재지정 및 지속 유지 지역 (총 37곳 상세 리스트)**<br>
+        * **서울 (25곳):** 강남구, 서초구, 송파구, 용산구 (지속 유지) + 그 외 21개 자치구 전역 (재지정)<br>
+        * **경기 (12곳):** 과천시, 광명시, 하남시, 의왕시, 성남시(분당구, 수정구, 중원구), 안양시(동안구), 용인시(수지구), 수원시(영통구, 장안구, 팔달구)
+        <br><br>
+        **📅 주요 규제지역 전면 해제 연혁 (수도권 기준)**<br>
+        * **2023년 1월 5일 해제:** 서울 강남3구(강남/서초/송파) 및 용산구를 제외한 서울 21개구 전역, 경기 과천, 광명, 성남(분당/수정), 하남<br>
+        * **2022년 11월 14일 해제:** 위 지역들을 제외한 경기/인천/지방 전역.<br>
+        *(※ 화성(동탄), 구리, 수원(권선구), 안양(만안구), 고양, 남양주, 평택, 인천, 세종 등 수많은 과거 규제지역들은 22년 11월(또는 그 이전)에 해제된 후 25년 10월 재지정 리스트에서 제외되어 현재 완벽한 비규제 상태입니다. 선택지 5번을 고르시면 됩니다.)*
+        <br><br>
+        **🎯 핀셋 규제란?**<br>
+        구 단위로 규제지역을 지정할 때, 외곽에 위치한 읍/면/동 단위는 억울하게 묶이는 것을 방지하기 위해 규제에서 **명시적으로 제외해 준 지역**을 뜻합니다. (예: 남양주 화도읍/수동면, 파주 문산읍, 용인 처인구 포곡읍 등)<br>
+        *(Tip) 만약 본인의 집이 핀셋 규제로 제외된 동네라면, 위 입력창의 '핀셋 규제 제외' 체크박스를 눌러주시면 앱이 알아서 예외 처리해 드립니다.*
+        """, unsafe_allow_html=True)
+
+# ==========================================
+# 6. 메인 네비게이션
 # ==========================================
 def main():
     st.markdown("""
@@ -476,13 +774,16 @@ def main():
     st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏢 집스탯 (ZipStat) PRO</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 세금 계산까지 원클릭으로!</p>", unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["🏠 실거래가/전세가율", "💰 취득세/보유세 계산"])
+    tab1, tab2, tab3 = st.tabs(["🏠 실거래가/전세가율", "💰 취득세/보유세 계산", "📈 양도세 계산 (Beta)"])
     
     with tab1: 
         run_real_estate_app()
         
     with tab2: 
         run_tax_app()
+        
+    with tab3:
+        run_capital_gains_tax_app()
         
     st.markdown("---")
     st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 계산은 세무 전문가와 상담하시기 바랍니다.")
