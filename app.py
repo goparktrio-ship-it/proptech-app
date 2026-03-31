@@ -195,7 +195,6 @@ def calculate_holding_tax(official_price_manwon, homes_count, is_joint):
 
     return official_price, total_prop_tax, total_comp_tax
 
-# 🚨 [백엔드 리팩토링] 바뀐 UI 옵션(넘버링)에 맞춰 타임라인 엔진 완벽 동기화!
 def check_regulation_status(area_type, yyyymm_str, mode="buy"):
     try:
         ym = int(yyyymm_str)
@@ -205,10 +204,10 @@ def check_regulation_status(area_type, yyyymm_str, mode="buy"):
     if ym < 201708:
         msg = "비규제 시기"
         is_reg = False
-    elif "①" in area_type: # 강남/서초/송파/용산
+    elif "①" in area_type:
         msg = "지속적 조정대상지역 유지"
         is_reg = True
-    elif "②" in area_type or "③" in area_type: # 21개구 및 과천/광명/하남/성남
+    elif "②" in area_type or "③" in area_type: 
         if 201708 <= ym <= 202212:
             msg = "과거 규제지역 지정 시기"
             is_reg = True
@@ -218,7 +217,7 @@ def check_regulation_status(area_type, yyyymm_str, mode="buy"):
         elif ym >= 202510:
             msg = "2025.10.15 대책 재지정 시기"
             is_reg = True
-    elif "④" in area_type: # 의왕/용인수지/안양동안/수원
+    elif "④" in area_type: 
         if 201708 <= ym <= 202211:
             msg = "과거 규제지역 지정 시기"
             is_reg = True
@@ -228,7 +227,7 @@ def check_regulation_status(area_type, yyyymm_str, mode="buy"):
         elif ym >= 202510:
             msg = "2025.10.15 대책 재지정 시기"
             is_reg = True
-    elif "⑤" in area_type: # 그 외 과거 규제지역 (현재 영구 비규제)
+    elif "⑤" in area_type: 
         if 201708 <= ym <= 202211:
             msg = "과거 규제지역 지정 시기"
             is_reg = True
@@ -636,12 +635,12 @@ def run_capital_gains_tax_app():
     with col2:
         st.markdown("#### 🚨 3. 자동 규제지역 판독기 (2000년~현재)")
         
-        # 🚨 [UI 변경] 모바일 최적화! 넘버링으로 아주 짧고 굵게 압축!
+        # 🚨 [UI 변경] 대표님이 요청하신 옵션으로 변경 완료! (모바일 절충안으로 기호 활용)
         cgt_area = st.selectbox("**📍 양도 물건 지역**", [
             "① 서울 강남/서초/송파/용산",
             "② 서울 그 외 21개 자치구",
             "③ 과천/광명/하남/성남(분당·수정)",
-            "④ 의왕/용인수지/안양동안/수원 등",
+            "④ 의왕/용인수지/안양동안/수원(영통/장안/팔달)",
             "⑤ 화성동탄/구리/세종 등 (과거해제)",
             "⑥ 전국 전면 비규제 지역"
         ])
