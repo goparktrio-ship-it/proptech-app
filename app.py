@@ -63,8 +63,13 @@ GU_CODES = {
 }
 
 REGULATED_AREAS = [
-    "서울특별시 (25개 구 전 지역)", "경기 과천시", "경기 광명시", "경기 하남시", "경기 의왕시",
-    "경기 성남시 (분당/수정/중원구)", "경기 수원시 (영통/장안/팔달구)", "경기 안양시 (동안구)", "경기 용인시 (수지구)", "경기 화성시 (동탄 등)"
+    "서울특별시 (25개 구 전 지역 재지정)", 
+    "경기 과천시", "경기 광명시", "경기 하남시", "경기 의왕시",
+    "경기 성남시 (분당/수정/중원구)", 
+    "경기 수원시 (영통/장안/팔달구)", 
+    "경기 안양시 (동안구)", 
+    "경기 용인시 (수지구)", 
+    "경기 화성시 (동탄 등)"
 ]
 ALL_AREAS = REGULATED_AREAS + ["그 외 수도권 (비규제지역)", "그 외 지방 (비규제지역)"]
 
@@ -368,7 +373,6 @@ def run_real_estate_app():
         
     category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 최고가 분석"], horizontal=True)
     
-    # 🚨 [UI 강조] 데이터 분석 버튼 강조
     submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True, type="primary")
 
     if submit_btn:
@@ -523,7 +527,7 @@ def run_real_estate_app():
                     with st.expander("📊 전체 데이터 보기"): st.dataframe(new_highs, use_container_width=True)
 
 # ==========================================
-# 4. 화면 구성 모듈 (앱 2: 취득세/보유세 계산)
+# 4. 화면 구성 모듈 (앱 2: 취득세/보유세 계산) - 세부항목 폰트 업그레이드
 # ==========================================
 def run_tax_app():
     st.subheader("💰 취득세/보유세 계산")
@@ -572,7 +576,6 @@ def run_tax_app():
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🚨 [UI 강조] 세금 계산 버튼 강조
     if st.button("세금 정밀 계산하기 🚀", use_container_width=True, key="btn_tax", type="primary"):
         acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
         off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
@@ -585,11 +588,11 @@ def run_tax_app():
         else:
             st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**")
             
-        # 🚨 [UI 강조] 결과 가공 (세부사항 작게, 총합 크게)
+        # 🚨 [UI 폰트 개선] <small> 태그 제거하고 14px/18px로 시원하게 설정
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<small>① 취득세</small><br><b>{int(acq_tax):,} 원</b>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<small>② 지방교육세</small><br><b>{int(edu_tax):,} 원</b>", unsafe_allow_html=True)
-        with c3: st.markdown(f"<small>③ 농특세</small><br><b>{int(rural_tax):,} 원</b>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 취득세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(acq_tax):,} 원</span>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 지방교육세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(edu_tax):,} 원</span>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<span style='font-size: 14px; color: #555;'>③ 농특세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(rural_tax):,} 원</span>", unsafe_allow_html=True)
         
         st.markdown(f"""
         <div style="background-color: #fef9c3; padding: 20px; border-radius: 15px; border-left: 10px solid #facc15; margin-top: 15px;">
@@ -603,8 +606,8 @@ def run_tax_app():
         st.info(f"💡 **기준 공시가격:** {int(off_p_won):,} 원")
         
         h1, h2, h3 = st.columns(3)
-        with h1: st.markdown(f"<small>① 재산세</small><br><b>{int(prop_p_won):,} 원</b>", unsafe_allow_html=True)
-        with h2: st.markdown(f"<small>② 종부세</small><br><b>{int(comp_p_won):,} 원</b>", unsafe_allow_html=True)
+        with h1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 재산세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(prop_p_won):,} 원</span>", unsafe_allow_html=True)
+        with h2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 종부세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(comp_p_won):,} 원</span>", unsafe_allow_html=True)
         
         st.markdown(f"""
         <div style="background-color: #fee2e2; padding: 20px; border-radius: 15px; border-left: 10px solid #ef4444; margin-top: 15px;">
@@ -625,7 +628,7 @@ def run_tax_app():
             """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. 화면 구성 모듈 (앱 3: 양도소득세 정밀 입력기)
+# 5. 화면 구성 모듈 (앱 3: 양도소득세 정밀 입력기) - 세부항목 폰트 업그레이드
 # ==========================================
 def run_capital_gains_tax_app():
     st.subheader("📈 양도소득세 계산 (Beta)")
@@ -650,7 +653,7 @@ def run_capital_gains_tax_app():
             st.error("🚨 거주 기간은 보유 기간을 초과할 수 없습니다.")
 
     with col2:
-        st.markdown("#### 🚨 3. 자동 규제지역 판독기 (2000년~현재)")
+        st.markdown("#### 🚨 3. 자동 규제지역 판독기")
         
         cgt_area = st.selectbox("**📍 양도 물건 지역**", [
             "① 서울 강남/서초/송파/용산",
@@ -667,32 +670,32 @@ def run_capital_gains_tax_app():
             
             **① 서울 강남/서초/송파/용산**<br>
             * **상세 구역:** 서울 강남구, 서초구, 송파구, 용산구 전역<br>
-            * **연혁:** 2017년 8.2 대책 이후 단 한 번도 해제된 적 없이 **지속적 조정대상지역 유지** (투기과열지구 포함)
+            * **연혁:** 지속적 조정대상지역 유지
             <br><br>
             
             **② 서울 그 외 21개 자치구**<br>
-            * **상세 구역:** 종로구, 중구, 성동구, 광진구, 동대문구, 중랑구, 성북구, 강북구, 도봉구, 노원구, 은평구, 서대문구, 마포구, 양천구, 강서구, 구로구, 금천구, 영등포구, 동작구, 관악구, 강동구<br>
-            * **연혁:** 과거 지정 → **23. 1. 5. 규제 전면 해제** → 25. 10. 15. 대책으로 **재지정**
+            * **상세 구역:** 종로, 중구, 성동, 광진, 동대문, 중랑, 성북, 강북, 도봉, 노원, 은평, 서대문, 마포, 양천, 강서, 구로, 금천, 영등포, 동작, 관악, 강동<br>
+            * **연혁:** 과거 지정 → **23. 1. 5. 해제** → **25. 10. 15. 재지정**
             <br><br>
             
             **③ 과천/광명/하남/성남(분당·수정)**<br>
-            * **상세 구역:** 경기 과천시, 광명시, 하남시, 성남시 분당구, 성남시 수정구<br>
-            * **연혁:** 과거 지정 → **23. 1. 5. 규제 전면 해제** → 25. 10. 15. 대책으로 **재지정**
+            * **상세 구역:** 경기 과천, 광명, 하남, 성남 분당, 성남 수정<br>
+            * **연혁:** 과거 지정 → **23. 1. 5. 해제** → **25. 10. 15. 재지정**
             <br><br>
             
             **④ 의왕/용인수지/안양동안/수원(영통/장안/팔달) 등**<br>
-            * **상세 구역:** 경기 의왕시, 용인시 수지구, 안양시 동안구, 성남시 중원구, 수원시 영통구, 수원시 장안구, 수원시 팔달구<br>
-            * **연혁:** 과거 지정 → **22. 11. 14. 1차 규제 해제** → 25. 10. 15. 대책으로 **재지정**
+            * **상세 구역:** 경기 의왕, 용인 수지, 안양 동안, 성남 중원, 수원 영통, 수원 장안, 수원 팔달<br>
+            * **연혁:** 과거 지정 → **22. 11. 14. 해제** → **25. 10. 15. 재지정**
             <br><br>
             
             **⑤ 화성동탄/구리/세종 등 (과거 해제 후 영구 비규제)**<br>
-            * **상세 구역:** 화성시(동탄 등), 구리시, 수원시 권선구, 안양시 만안구, 고양시, 남양주시, 평택시, 인천광역시, 세종특별자치시 등 과거 규제로 묶였던 **그 외 모든 지역**<br>
-            * **연혁:** 과거 지정 → **22. 11. 14. (또는 그 이전) 전면 해제** 후 현재까지 영구 비규제 유지 (25.10 대책 재지정 제외됨)
+            * **상세 구역:** 화성(동탄 등), 구리, 수원 권선, 안양 만안, 고양, 남양주, 평택, 인천, 세종 등<br>
+            * **연혁:** 과거 지정 → **22. 11. 14. (또는 이전) 전면 해제** 후 현재까지 비규제 유지
             <br><br>
             
             **⑥ 전국 전면 비규제 지역**<br>
-            * **상세 구역:** 위 ①~⑤에 단 한 번도 속한 적 없는 그 외 모든 대한민국 영토 (강원, 제주, 영호남 등)<br>
-            * **연혁:** 규제지역으로 묶인 역사가 없어 취득 시점 무관하게 거주요건 2년이 무조건 면제되며, 양도세 중과도 없습니다.
+            * **상세 구역:** 위 ①~⑤에 단 한 번도 속한 적 없는 그 외 모든 지역<br>
+            * **연혁:** 규제지역으로 묶인 역사가 없어 거주요건 무조건 면제 및 중과 없음
             """, unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -717,7 +720,7 @@ def run_capital_gains_tax_app():
         else:
             st.success(msg_buy)
             
-        st.markdown("**[매도 시점 규확인]**")
+        st.markdown("**[매도 시점 규제 확인]**")
         sell_ym = st.text_input("**매도(예정)년월 (YYYYMM)**", value="202604")
         is_reg_sell, msg_sell = check_regulation_status(cgt_area, sell_ym, mode="sell")
         
@@ -749,7 +752,6 @@ def run_capital_gains_tax_app():
 
     st.markdown("---")
     
-    # 🚨 [UI 강조] 양도세 계산 버튼 강조
     if st.button("양도세 정밀 계산하기 🚀", use_container_width=True, key="btn_cgt", type="primary"):
         if holding_period <= 0:
             st.error("보유 기간은 0년보다 커야 합니다.")
@@ -762,18 +764,18 @@ def run_capital_gains_tax_app():
             st.markdown(f"#### 📊 양도소득세 산출 결과")
             st.info(f"💡 **적용 상태:** {status_msg}")
             
-            # 🚨 [UI 강조] 결과 가공 (세부사항 작게, 총합 크게)
+            # 🚨 [UI 폰트 개선] <small> 태그 제거하고 14px/18px로 시원하게 설정
             c1, c2, c3 = st.columns(3)
-            with c1: st.markdown(f"<small>① 총 양도차익</small><br><b>{int(gain):,} 원</b>", unsafe_allow_html=True)
-            with c2: st.markdown(f"<small>② 과세대상 차익</small><br><b>{int(tax_gain):,} 원</b>", unsafe_allow_html=True)
-            with c3: st.markdown(f"<small>③ 장특공제({deduct_rate * 100:.0f}%)</small><br><b>- {int(deduct_amt):,} 원</b>", unsafe_allow_html=True)
+            with c1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 총 양도차익</span><br><span style='font-size: 18px; font-weight: bold;'>{int(gain):,} 원</span>", unsafe_allow_html=True)
+            with c2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 과세대상 차익</span><br><span style='font-size: 18px; font-weight: bold;'>{int(tax_gain):,} 원</span>", unsafe_allow_html=True)
+            with c3: st.markdown(f"<span style='font-size: 14px; color: #555;'>③ 장특공제({deduct_rate * 100:.0f}%)</span><br><span style='font-size: 18px; font-weight: bold; color: #2563eb;'>- {int(deduct_amt):,} 원</span>", unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
             c4, c5 = st.columns(2)
             tb_label = "④ 과표 (1인 기준)" if is_joint_sell else "④ 과세표준"
-            with c4: st.markdown(f"<small>{tb_label}</small><br><b>{int(tax_base):,} 원</b>", unsafe_allow_html=True)
-            with c5: st.markdown(f"<small>⑤ 적용 최고세율</small><br><b>{rate * 100:.1f}%</b>", unsafe_allow_html=True)
+            with c4: st.markdown(f"<span style='font-size: 14px; color: #555;'>{tb_label}</span><br><span style='font-size: 18px; font-weight: bold;'>{int(tax_base):,} 원</span>", unsafe_allow_html=True)
+            with c5: st.markdown(f"<span style='font-size: 14px; color: #555;'>⑤ 적용 최고세율</span><br><span style='font-size: 18px; font-weight: bold; color: #dc2626;'>{rate * 100:.1f}%</span>", unsafe_allow_html=True)
             
             res_label = "부부 합산 양도세 총액" if is_joint_sell else "납부 예상 양도세 총액"
             st.markdown(f"""
@@ -802,7 +804,6 @@ def run_capital_gains_tax_app():
 # 6. 메인 네비게이션
 # ==========================================
 def main():
-    # 🚨 [CSS 강조] 버튼 색상 빨간색으로 고정 및 가독성 패치
     st.markdown("""
     <style>
         .block-container { padding-top: 3rem !important; }
@@ -862,5 +863,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
+    
