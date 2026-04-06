@@ -64,6 +64,7 @@ GU_CODES = {
     "송파구": "11710", "강남구": "11680", "서초구": "11650",
     "강동구": "11740", "마포구": "11440", "용산구": "11170",
     "성동구": "11200", "과천시": "41290", "수지구": "41465",
+    "영통구": "41117", 
     "하남시": "41450", "분당구": "41135",
     "동탄구(화성시)": "41597"
 }
@@ -132,7 +133,7 @@ def calculate_acquisition_tax(price_manwon, is_large_area, homes_count, is_regul
     if homes_count in ["1주택", "일시적 2주택"]: tax_rate = base_rate
     elif homes_count == "2주택": tax_rate = 0.08 if is_regulated else base_rate
     elif homes_count == "3주택": tax_rate = 0.12 if is_regulated else 0.08
-    elif homes_count == "4주택 이상 (법인 포함)": tax_rate = 0.12     
+    elif homes_count == "4주택 이상 (법인 포함)": tax_rate = 0.12      
 
     if tax_rate == base_rate: 
         edu_rate = tax_rate * 0.1
@@ -638,7 +639,6 @@ def run_tax_app():
         st.markdown("#### 👤 2. 매수자 명의 및 주택 수")
         homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
         
-        # [모바일 최적화 및 충돌 방지 HTML]
         with st.expander("❓ 내 주택수 정확히 세는 법 (취득세 기준)"):
             st.markdown(f"""{DETAIL_STYLE}
             <ul style='margin-top: 0; padding-left: 20px;'>
@@ -687,7 +687,6 @@ def run_tax_app():
         with c2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 지방교육세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(edu_tax):,} 원</span>", unsafe_allow_html=True)
         with c3: st.markdown(f"<span style='font-size: 14px; color: #555;'>③ 농특세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(rural_tax):,} 원</span>", unsafe_allow_html=True)
         
-        # [복구] 예쁜 UI 색상 박스
         st.markdown(f"""
         <div style="background-color: #fef9c3; padding: 20px; border-radius: 15px; border-left: 10px solid #facc15; margin-top: 15px;">
             <p style="margin: 0; color: #854d0e; font-weight: bold;">💸 총 납부 예상 취득세</p>
@@ -701,7 +700,6 @@ def run_tax_app():
         with h1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 재산세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(prop_p_won):,} 원</span>", unsafe_allow_html=True)
         with h2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 종부세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(comp_p_won):,} 원</span>", unsafe_allow_html=True)
         
-        # [복구] 예쁜 UI 색상 박스
         st.markdown(f"""
         <div style="background-color: #fee2e2; padding: 20px; border-radius: 15px; border-left: 10px solid #ef4444; margin-top: 15px;">
             <p style="margin: 0; color: #991b1b; font-weight: bold;">💸 매년 납부 예상 총 보유세</p>
@@ -709,7 +707,6 @@ def run_tax_app():
         </div>
         """, unsafe_allow_html=True)
 
-    # [모바일 최적화 및 충돌 방지 HTML]
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📝 산출 기준 요약 안내"):
         st.markdown(f"""{DETAIL_STYLE}
@@ -726,7 +723,6 @@ def run_tax_app():
 # 6. 화면 구성 (앱 3: 양도소득세)
 # ==========================================
 def run_capital_gains_tax_app():
-    # [수정] Beta 텍스트 제거
     st.subheader("📈 양도소득세 계산")
     st.info("📌 **매수/매도 시점의 규제지역 여부**를 자동으로 판독하여 거주요건 및 중과 여부를 체크합니다.")
     
@@ -748,7 +744,6 @@ def run_capital_gains_tax_app():
             "④ 의왕/용인수지/안양동안/수원(영통/장안/팔달)", "⑤ 화성동탄/구리/세종 등 (과거해제)", "⑥ 전국 전면 비규제 지역"
         ])
         
-        # [모바일 최적화 및 충돌 방지 HTML]
         with st.expander("❓ 규제지역 번호별 상세 연혁"):
             st.markdown(f"""{DETAIL_STYLE}
             <ul style='margin-top: 0; padding-left: 20px;'>
@@ -796,7 +791,6 @@ def run_capital_gains_tax_app():
         st.markdown("<br>", unsafe_allow_html=True)
         homes_count_sell = st.selectbox("**매도 시점 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택 이상"])
         
-        # [모바일 최적화 및 충돌 방지 HTML]
         with st.expander("❓ 내 주택수 정확히 세는 법 (양도세 기준)"):
             st.markdown(f"""{DETAIL_STYLE}
             <ul style='margin-top: 0; padding-left: 20px;'>
@@ -830,7 +824,6 @@ def run_capital_gains_tax_app():
         with c4: st.markdown(f"<span style='font-size: 14px; color: #555;'>{tb_label}</span><br><span style='font-size: 18px; font-weight: bold;'>{int(tax_base):,} 원</span>", unsafe_allow_html=True)
         with c5: st.markdown(f"<span style='font-size: 14px; color: #555;'>⑤ 적용 최고세율</span><br><span style='font-size: 18px; font-weight: bold; color: #dc2626;'>{rate * 100:.1f}%</span>", unsafe_allow_html=True)
         
-        # [복구] 예쁜 UI 색상 박스
         res_label = "부부 합산 양도세 총액" if is_joint_sell else "납부 예상 양도세 총액"
         st.markdown(f"""
         <div style="background-color: #fee2e2; padding: 20px; border-radius: 15px; border-left: 10px solid #ef4444; margin-top: 15px;">
@@ -839,7 +832,6 @@ def run_capital_gains_tax_app():
         </div>
         """, unsafe_allow_html=True)
         
-    # [모바일 최적화 및 충돌 방지 HTML]
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📝 1세대 1주택 비과세 핵심 요건"):
         st.markdown(f"""{DETAIL_STYLE}
@@ -863,7 +855,6 @@ def run_capital_gains_tax_app():
 # 7. 화면 구성 (앱 4: 자금조달 및 대출 V2.1)
 # ==========================================
 def run_loan_simulator_app():
-    # [수정] 텍스트 간결화
     st.subheader("🏦 대출 및 자금조달")
     
     st.error("🚨 **[긴급 공지] 2026. 4. 1. 가계대출 관리방안 반영:** 다주택자의 수도권 및 규제지역 내 주택담보대출 만기 연장이 4월 17일부터 원칙적으로 금지됩니다.")
@@ -981,7 +972,6 @@ def run_loan_simulator_app():
                 with r2: st.markdown(f"<span style='font-size: 14px; color: #555;'>신규 대출 원금</span><br><span style='font-size: 18px; font-weight: bold;'>{int(required_loan):,} 만원</span>", unsafe_allow_html=True)
                 with r3: st.markdown(f"<span style='font-size: 14px; color: #555;'>총 이자액 ({loan_years}년)</span><br><span style='font-size: 18px; font-weight: bold;'>{int(total_interest_won/10000):,} 만원</span>", unsafe_allow_html=True)
                 
-                # [복구] 예쁜 UI 색상 박스
                 total_monthly_out = monthly_pmt_won + (debt_etc_monthly * 10000)
                 st.markdown(f"""
                 <div style="background-color: #e0f2fe; padding: 20px; border-radius: 15px; border-left: 10px solid #0ea5e9; margin-top: 15px;">
@@ -994,57 +984,118 @@ def run_loan_simulator_app():
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("#### 🏢 1. 전세 조건")
+            is_capital_jeonse = st.checkbox("🏙️ 구하려는 전셋집이 **수도권(서울/경기/인천)**에 위치해 있습니다.", value=True)
             jeonse_deposit = st.number_input("**들어가려는 집의 전세 보증금 (만원)**", min_value=1000, value=30000, step=1000)
             jeonse_cash = st.number_input("**현재 보유 중인 전세 현금 (만원)**", min_value=0, value=10000, step=1000)
             required_jeonse_loan = max(0, jeonse_deposit - jeonse_cash)
             st.caption(f"💸 실제 필요 전세 대출 금액: **{required_jeonse_loan/10000:.1f}억 원**")
+
         with col2:
             st.markdown("#### 👤 2. 고객 주택 보유 여부")
-            jeonse_homes = st.selectbox("**현재 고객님 명의로 보유 중인 주택 수**", ["무주택", "1주택", "2주택 이상"])
+            jeonse_homes = st.selectbox("**현재 명의로 보유 중인 주택 수**", ["무주택", "1주택", "2주택 이상"])
+            
             is_1home_banned = False
+            is_regulated_1home = False
             
             if jeonse_homes == "2주택 이상":
-                st.error("🚨 2주택 이상 보유자는 전세자금대출을 받을 수 없습니다.")
+                st.error("🚨 다주택자(2주택 이상)는 공적 보증 전세대출이 전면 금지됩니다.")
             elif jeonse_homes == "1주택":
-                is_speculative = st.checkbox("보유 주택이 **투기/투기과열지구**에 위치해 있습니까?")
-                is_high_price = st.checkbox("보유 주택 시세가 **3억 원을 초과**합니까?")
-                if is_speculative and is_high_price:
+                is_regulated_1home = st.checkbox("🚨 보유하신 기존 주택이 **규제지역(서울 등)**에 있습니까?")
+                if is_regulated_1home:
+                    st.warning("⚠️ **[최신 규제]** 1주택자 규제지역 보유 시 전세대출 이자가 DSR 산정에 엄격히 포함되어 한도가 대폭 축소될 수 있습니다.")
+                    
+                is_speculative = st.checkbox("🚨 보유 주택이 **투기/투기과열지구**에 위치하며 **시세 3억**을 초과합니까?")
+                if is_speculative:
                     is_1home_banned = True
                     st.error("🚨 투기과열지구 내 시세 3억 초과 주택 보유자는 전세 대출이 전면 금지됩니다.")
             elif jeonse_homes == "무주택":
-                st.success("✅ 무주택자는 입주권/분양권 보유와 무관하게 대출이 가능합니다.")
+                st.success("✅ 무주택자는 보증금 조건만 맞으면 가장 유리하게 대출이 가능합니다.")
                 
             jeonse_rate = st.number_input("**예상 전세 대출 금리 (연 %)**", min_value=1.0, value=4.5, step=0.1)
 
         st.markdown("---")
-        if st.button("전세대출 가능 여부 계산 🚀", use_container_width=True, type="primary"):
+        if st.button("맞춤형 전세대출 컨설팅 시작 🚀", use_container_width=True, type="primary"):
             if required_jeonse_loan == 0:
                 st.success("보유 현금이 충분하여 전세 대출이 필요하지 않습니다! 🎉")
             elif jeonse_homes == "2주택 이상" or (jeonse_homes == "1주택" and is_1home_banned):
-                st.error("🚨 **대출 불가!** 대출 규제로 인해 전세자금 보증이 거절됩니다.")
+                st.error("🚨 **대출 불가!** 최신 규제로 인해 전세자금 보증이 거절됩니다.")
             else:
-                max_jeonse_limit = min(jeonse_deposit * 0.80, 50000) if jeonse_homes == "무주택" else min(jeonse_deposit * 0.80, 20000)
+                st.markdown("#### 📊 맞춤형 전세대출 추천 결과 (1~3순위)")
+                recommended_loans = []
                 
-                st.markdown("#### 📊 1. 전세대출 한도 점검")
-                if required_jeonse_loan > max_jeonse_limit:
-                    st.error(f"🚨 **대출 한도 초과!** 최대 가능액: **{int(max_jeonse_limit):,}만 원**")
+                # 1. 버팀목 (정부기금)
+                btm_deposit_limit = 30000 if is_capital_jeonse else 20000
+                btm_max_loan = 12000 if is_capital_jeonse else 8000
+                if jeonse_homes == "무주택" and jeonse_deposit <= btm_deposit_limit:
+                    actual_limit = min(btm_max_loan, jeonse_deposit * 0.8)
+                    if required_jeonse_loan <= actual_limit:
+                        recommended_loans.append({
+                            "rank": "🥇 1순위 추천",
+                            "name": "버팀목 전세자금대출 (정부기금)",
+                            "limit": f"최대 {int(actual_limit):,}만 원",
+                            "condition": f"무주택자 & 보증금 {'수도권 3억' if is_capital_jeonse else '지방 2억'} 원 이하",
+                            "advantage": "시중 은행 대비 압도적으로 낮은 최저 금리를 제공하여 이자 부담이 가장 적습니다!"
+                        })
+                
+                # 2. HUG / HF (일반 보증)
+                hug_deposit_limit = 70000 if is_capital_jeonse else 50000
+                hug_max_loan = 40000
+                hf_max_loan = 22200
+                
+                if jeonse_deposit <= hug_deposit_limit:
+                    actual_hug_limit = min(hug_max_loan, jeonse_deposit * 0.8)
+                    actual_hf_limit = min(hf_max_loan, jeonse_deposit * 0.8)
+                    if required_jeonse_loan <= actual_hug_limit:
+                        recommended_loans.append({
+                            "rank": "🥈 2순위 추천",
+                            "name": "HUG 안심전세대출 / HF 전세대출",
+                            "limit": f"HUG 최대 {int(actual_hug_limit):,}만 원 / HF 최대 {int(actual_hf_limit):,}만 원",
+                            "condition": f"보증금 {'수도권 7억' if is_capital_jeonse else '지방 5억'} 원 이하 (1주택자는 한도 제한 가능)",
+                            "advantage": "HUG 상품의 경우, 대출과 동시에 전세보증금 반환보증보험이 100% 자동 가입되어 소중한 보증금을 가장 안전하게 지킬 수 있습니다."
+                        })
+                
+                # 3. SGI 서울보증보험 (고가 전세)
+                sgi_max_loan = 50000 if jeonse_homes == "무주택" else 30000
+                actual_sgi_limit = min(sgi_max_loan, jeonse_deposit * 0.8)
+                
+                if jeonse_deposit > hug_deposit_limit or required_jeonse_loan > hug_max_loan:
+                    if required_jeonse_loan <= actual_sgi_limit:
+                         recommended_loans.append({
+                            "rank": "🥉 3순위 추천 (고가 전세용)",
+                            "name": "SGI 서울보증보험 전세대출",
+                            "limit": f"최대 {int(actual_sgi_limit):,}만 원",
+                            "condition": "보증금 상한선 제한 없음 (수도권 7억 초과 고가 아파트도 가능)",
+                            "advantage": "정부나 HUG 보증이 불가능한 고가 주택이나, 대출 한도가 더 많이 필요한 경우 활용할 수 있는 가장 강력한 민간 보증 상품입니다."
+                        })
+                elif len(recommended_loans) == 0:
+                     recommended_loans.append({
+                            "rank": "🥉 3순위 추천 (대체용)",
+                            "name": "SGI 서울보증보험 전세대출",
+                            "limit": f"최대 {int(actual_sgi_limit):,}만 원",
+                            "condition": "보증금 상한선 제한 없음",
+                            "advantage": "다른 공적 보증 한도가 부족할 때 안전하게 활용 가능한 상품입니다."
+                        })
+
+                if not recommended_loans:
+                    st.error(f"🚨 현재 입력하신 금액 (보증금 {jeonse_deposit:,}만 원, 필요 대출 {required_jeonse_loan:,}만 원) 전체를 방어할 수 있는 보증 상품 한도가 부족합니다. 현금을 더 확보해야 합니다.")
                 else:
-                    st.success(f"✅ **대출 한도 통과** (최대 한도 {int(max_jeonse_limit):,}만 원 이내)")
-                    
+                    for loan in recommended_loans:
+                        st.success(f"### {loan['rank']} | {loan['name']}\n"
+                                   f"- 💰 **대출 한도:** {loan['limit']}\n"
+                                   f"- 📝 **필수 조건:** {loan['condition']}\n"
+                                   f"- ⭐ **상품 장점:** {loan['advantage']}")
+
                 monthly_jeonse_interest, _ = calculate_loan_payment(required_jeonse_loan, jeonse_rate, years=2, is_interest_only=True)
                 
                 st.markdown("---")
                 st.markdown("#### 💸 2. 매월 납부 예상 이자 (만기일시상환)")
-                
-                # [복구] 예쁜 UI 색상 박스
                 st.markdown(f"""
                 <div style="background-color: #fef3c7; padding: 20px; border-radius: 15px; border-left: 10px solid #f59e0b; margin-top: 15px;">
-                    <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: bold;">🔑 매월 은행에 납부하실 이자액</p>
+                    <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: bold;">🔑 매월 은행에 납부하실 전세대출 이자액 (원금 제외)</p>
                     <h2 style="margin: 0; color: #d97706; font-size: 2.5rem;">약 {int(monthly_jeonse_interest):,} 원</h2>
                 </div>
                 """, unsafe_allow_html=True)
 
-    # [모바일 최적화 및 충돌 방지 HTML]
     st.markdown("<br><br>", unsafe_allow_html=True)
     with st.expander("🔍 정책자금대출(신생아/디딤돌) 핵심 요약", expanded=False):
         st.markdown(f"""{DETAIL_STYLE}
@@ -1063,6 +1114,33 @@ def run_loan_simulator_app():
         </ul>
         <hr style='margin: 10px 0;'>
         <b>3. 공통 요건:</b> 가구당 순자산 4.69억 원 이하
+        </div>""", unsafe_allow_html=True)
+
+    # 🔥 전세대출 3종 요약본 추가
+    with st.expander("🔍 주요 전세자금대출(버팀목/HUG/SGI) 핵심 요약", expanded=False):
+        st.markdown(f"""{DETAIL_STYLE}
+        <b>💡 공통 한도 유의사항:</b> 대부분의 전세대출은 <b>전세보증금의 최대 80%</b>까지만 대출이 가능합니다. (단, 신혼부부나 청년 등 일부 상품은 조건에 따라 90%까지 가능)
+        <hr style='margin: 10px 0;'>
+        <b>1. 🏛️ 버팀목 전세자금대출 (정부기금)</b>
+        <ul style='margin-top: 0; padding-left: 20px;'>
+            <li><b>조건/한도:</b> 무주택자 / 보증금 상한(수도권 3억, 지방 2억 이하) / 최대 한도 1.2억(지방 8천만)</li>
+            <li><b>장점:</b> 시중 은행 전세대출 대비 금리가 가장 저렴하여 이자 부담이 확연히 적습니다. (1~2%대)</li>
+            <li><b>단점:</b> 보증금 상한선과 대출 한도가 낮아 고가 전세 아파트에는 활용이 어렵습니다.</li>
+        </ul>
+        <hr style='margin: 10px 0;'>
+        <b>2. 🛡️ HUG 안심전세대출 / HF 일반전세대출</b>
+        <ul style='margin-top: 0; padding-left: 20px;'>
+            <li><b>조건/한도:</b> 보증금 상한(수도권 7억, 지방 5억 이하) / [HUG] 최대 4억 원 / [HF] 최대 2.22억 원</li>
+            <li><b>장점:</b> [HUG] 대출과 동시에 전세보증금 반환보증보험이 무조건 100% 자동 가입되어 깡통전세 예방에 탁월합니다.</li>
+            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등)에 따라 거절될 수 있습니다.</li>
+        </ul>
+        <hr style='margin: 10px 0;'>
+        <b>3. 🏢 SGI 서울보증보험 전세대출</b>
+        <ul style='margin-top: 0; padding-left: 20px;'>
+            <li><b>조건/한도:</b> 보증금 상한 <b>제한 없음</b> / 최대 5억 원 (1주택자는 3억 원)</li>
+            <li><b>장점:</b> 보증금 제한이 없어 수도권 7억 원 초과 고가 아파트 전세에 폭넓게 활용 가능합니다.</li>
+            <li><b>단점:</b> 타 기관 상품 대비 보증료율과 은행 적용 금리가 상대적으로 높은 편입니다.</li>
+        </ul>
         </div>""", unsafe_allow_html=True)
 
 # ==========================================
