@@ -6,23 +6,38 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 from PIL import Image
+import base64
+
+# ==========================================
+# [성능 최적화] 캐싱 함수 정의
+# ==========================================
+# 이미지를 읽고 Base64로 변환하는 무거운 작업은 한 번만 수행하도록 캐싱합니다.
+@st.cache_resource
+def load_assets(path):
+    icon_to_show = "🏢"
+    img_b64 = ""
+    try:
+        if os.path.exists(path):
+            # 1) 탭 아이콘용 PIL 이미지
+            logo_img = Image.open(path)
+            icon_to_show = logo_img
+            
+            # 2) 홈 화면 아이콘용 Base64 변환
+            with open(path, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+    except Exception:
+        pass
+    return icon_to_show, img_b64
 
 # ==========================================
 # 0. 경로 설정 및 아이콘 로드 (최상단 배치 필수)
 # ==========================================
-# 현재 실행 중인 파일의 절대 경로를 가져와서 파일 탐색 기준점으로 삼습니다.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 logo_path = os.path.join(current_dir, "logo.png")
 COUNTER_FILE = os.path.join(current_dir, "visitor_count.json")
 
-# 로고 이미지 불러오기 시도
-icon_to_show = "🏢"  # 기본 아이콘
-try:
-    if os.path.exists(logo_path):
-        logo_img = Image.open(logo_path)
-        icon_to_show = logo_img
-except Exception:
-    pass
+# 최적화된 자산 로드 실행
+icon_to_show, img_base64 = load_assets(logo_path)
 
 # [주의] st.set_page_config는 반드시 코드의 가장 첫 번째 Streamlit 명령이어야 합니다.
 st.set_page_config(
@@ -32,38 +47,45 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 공통 설명문 CSS 스타일 (모바일 최적화)
+# 스마트폰 홈 화면 아이콘 및 파비콘 강제 주입 (캐시된 데이터 사용으로 로딩 속도 향상)
+if img_base64:
+    icon_html = f"""
+    <link rel="apple-touch-icon" href="data:image/png;base64,{img_base64}">
+    <link rel="icon" href="data:image/png;base64,{img_base64}">
+    """
+    st.markdown(icon_html, unsafe_allow_html=True)
+
+# 공통 설명문 CSS 스타일
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
 # ==========================================
 # 📊 방문자 수 트래킹 엔진 (경로 최적화 버전)
 # ==========================================
+@st.cache_data(ttl=60) # 1분 동안은 파일 읽기를 반복하지 않도록 최적화
+def read_visitor_data(file_path):
+    if not os.path.exists(file_path):
+        return {"total": 0, "daily": {}}
+    with open(file_path, "r", encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except:
+            return {"total": 0, "daily": {}}
+
 def update_and_get_visitor_count():
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    # 파일이 없으면 초기 데이터 생성
-    if not os.path.exists(COUNTER_FILE):
-        data = {"total": 0, "daily": {}}
-        with open(COUNTER_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f)
-            
-    # 데이터 읽기
-    with open(COUNTER_FILE, "r", encoding="utf-8") as f:
-        try:
-            data = json.load(f)
-        except:
-            data = {"total": 0, "daily": {}}
+    data = read_visitor_data(COUNTER_FILE)
         
     if today not in data["daily"]:
         data["daily"][today] = 0
         
-    # 세션 상태를 이용해 한 접속당 한 번만 카운트 증가
     if 'has_visited' not in st.session_state:
         data["total"] += 1
         data["daily"][today] += 1
         st.session_state['has_visited'] = True 
         with open(COUNTER_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
+        # 데이터가 바뀌었으면 캐시를 비워야 정확한 값이 나옴
+        st.cache_data.clear()
             
     return data["total"], data["daily"][today]
 
