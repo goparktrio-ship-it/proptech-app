@@ -9,49 +9,51 @@ from PIL import Image
 import base64
 
 # ==========================================
-# [성능 최적화] 캐싱 함수 정의
+# [최적화] 자산 로딩 및 아이콘 설정 엔진
 # ==========================================
-# 이미지를 읽고 Base64로 변환하는 무거운 작업은 한 번만 수행하도록 캐싱합니다.
 @st.cache_resource
-def load_assets(path):
-    icon_to_show = "🏢"
-    img_b64 = ""
+def get_icon_assets(path):
+    """
+    로고 이미지를 읽어 브라우저 탭(Data URI) 및 홈 화면용(Base64) 데이터를 생성합니다.
+    이미지 파일이 없을 경우 기본 이모지를 반환합니다.
+    """
+    default_emoji = "🏢"
+    if not os.path.exists(path):
+        return default_emoji, ""
+    
     try:
-        if os.path.exists(path):
-            # 1) 탭 아이콘용 PIL 이미지
-            logo_img = Image.open(path)
-            icon_to_show = logo_img
-            
-            # 2) 홈 화면 아이콘용 Base64 변환
-            with open(path, "rb") as f:
-                img_b64 = base64.b64encode(f.read()).decode()
+        with open(path, "rb") as f:
+            data = f.read()
+            b64_str = base64.b64encode(data).decode()
+            # 탭 아이콘용 Data URI (브라우저 호환성 최상)
+            data_uri = f"data:image/png;base64,{b64_str}"
+            return data_uri, b64_str
     except Exception:
-        pass
-    return icon_to_show, img_b64
+        return default_emoji, ""
 
-# ==========================================
-# 0. 경로 설정 및 아이콘 로드 (최상단 배치 필수)
-# ==========================================
+# 0. 경로 설정 및 자산 로드 (최상단)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 logo_path = os.path.join(current_dir, "logo.png")
 COUNTER_FILE = os.path.join(current_dir, "visitor_count.json")
 
-# 최적화된 자산 로드 실행
-icon_to_show, img_base64 = load_assets(logo_path)
+# 아이콘 자산 확보 (캐싱 적용으로 속도 저하 방지)
+page_icon_data, raw_b64 = get_icon_assets(logo_path)
 
-# [주의] st.set_page_config는 반드시 코드의 가장 첫 번째 Streamlit 명령이어야 합니다.
+# [필독] st.set_page_config는 반드시 코드의 첫 번째 Streamlit 명령이어야 함
 st.set_page_config(
     page_title="집스탯 PRO V2.1",
-    page_icon=icon_to_show,
+    page_icon=page_icon_data,  # Data URI를 직접 전달하여 파비콘 실종 문제 해결
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 스마트폰 홈 화면 아이콘 및 파비콘 강제 주입 (캐시된 데이터 사용으로 로딩 속도 향상)
-if img_base64:
+# 스마트폰 홈 화면 아이콘(Apple Touch Icon) 및 강제 파비콘 주입
+if raw_b64:
     icon_html = f"""
-    <link rel="apple-touch-icon" href="data:image/png;base64,{img_base64}">
-    <link rel="icon" href="data:image/png;base64,{img_base64}">
+    <link rel="apple-touch-icon" href="data:image/png;base64,{raw_b64}">
+    <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{raw_b64}">
+    <link rel="shortcut icon" type="image/png" href="data:image/png;base64,{raw_b64}">
+    <link rel="icon" type="image/png" href="data:image/png;base64,{raw_b64}">
     """
     st.markdown(icon_html, unsafe_allow_html=True)
 
@@ -59,9 +61,9 @@ if img_base64:
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
 # ==========================================
-# 📊 방문자 수 트래킹 엔진 (경로 최적화 버전)
+# 📊 방문자 수 트래킹 엔진
 # ==========================================
-@st.cache_data(ttl=60) # 1분 동안은 파일 읽기를 반복하지 않도록 최적화
+@st.cache_data(ttl=60)
 def read_visitor_data(file_path):
     if not os.path.exists(file_path):
         return {"total": 0, "daily": {}}
@@ -84,7 +86,6 @@ def update_and_get_visitor_count():
         st.session_state['has_visited'] = True 
         with open(COUNTER_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
-        # 데이터가 바뀌었으면 캐시를 비워야 정확한 값이 나옴
         st.cache_data.clear()
             
     return data["total"], data["daily"][today]
@@ -1210,8 +1211,9 @@ def main():
 
     with st.sidebar:
         # 사이드바 상단 로고 이미지 (경로 최적화 반영)
-        if isinstance(icon_to_show, Image.Image):
-            st.image(icon_to_show, use_container_width=True)
+        # 로직 수정: page_icon_data(Data URI)가 있으면 표시
+        if "base64" in page_icon_data:
+            st.image(page_icon_data, use_container_width=True)
         else:
             st.title("🏢 집스탯 (ZipStat)")
         
@@ -1257,4 +1259,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
