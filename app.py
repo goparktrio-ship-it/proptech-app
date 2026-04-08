@@ -8,13 +8,39 @@ from datetime import datetime
 
 from PIL import Image  # 이미지를 불러오기 위한 모듈 추가
 
-{
-"component": "LlmGeneratedComponent",
-"props": {
-"height": "650px",
-"prompt": "Create an interactive tutor widget to help a user debug a FileNotFoundError in a Streamlit app. \n\n1. Objective: Visualize the project folder structure, show a simplified app.py code snippet, and simulate different run scenarios to illustrate how the working directory affects relative file paths.\n2. Structure: \n    * Main Section:\n        * Visual representation of the folder structure (e.g., Main/, app.py, logo.png in the same directory).\n        * A Code Snippet Viewer displaying the essential from PIL import Image and logo_img = Image.open(\"logo.png\") lines, with the filename parameter highlighted.\n        * Simulation Controls: Two buttons labeled '프로젝트 루트에서 실행' (Run from Project Root) and '외부 폴더에서 실행' (Run from Outside).\n    * Output Section:\n        * An App Preview area below the controls. \n    * Explanation Section: A text area below the preview.\n3. Behavior:\n    * Initial State: Visual structure shows app.py and logo.png in the same directory. The Code Viewer highlights 'logo.png'. The App Preview is empty or shows a generic placeholder. The Explanation states that running from the correct directory is crucial.\n    * User Action (프로젝트 루트에서 실행): When this button is clicked, simulate success: the visual structure highlights logo.png, the Code Viewer might show a subtle success indicator (no horizontal layout splits), the App Preview displays a generic simulated logo image (not a named color/specific design), and the Explanation explains that because the app ran from the root, logo.png was found relative to app.py as coded. Avoid horizontal splits. Use only generic functional language for styling.\n    * User Action (외부 폴더에서 실행): When this button is clicked, simulate failure: The visual structure shows a missing or failed indicator for logo.png, the App Preview shows a clear 'ERROR: 파일을 찾을 수 없습니다' (FileNotFoundError) overlay, and the Explanation explains that because the app ran from outside the project folder, it looked for logo.png in the wrong place and failed, even though the files are in the same folder on disk. Avoid horizontal splits. Use only generic functional language for styling.\n4. Data: Use the user's specific filenames logo.png and app.py and directory structure description. Use generalized code snippets. All UI text and explanations must be in Korean, translating terms like 'File Not Found Error', 'Working Directory', 'Relative Path', 'Project Root', 'Run', 'Code', 'Output', 'Preview' where appropriate, or keeping them in English if they are technical standard terms common in Korean context and better left as is for user clarity (like app.py, logo.png, FileNotFoundError). Be precise and consistent with terms like 앱 파일, 이미지 파일, 실행 위치. Do not use named colors, fonts, horizontal splits, placeholders like 'Sample Data', persistence, or suggest external resources."
-}
-}
+# 1. 현재 실행 중인 app.py 파일이 있는 폴더 경로를 자동으로 가져옵니다.
+# (이 코드를 사용하면 터미널을 어디서 실행하든 상관없어집니다!)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 2. 그 폴더 경로와 'logo.png' 이름을 합쳐서 전체 경로를 만듭니다.
+logo_path = os.path.join(current_dir, "logo.png")
+
+try:
+    # 3. 계산된 전체 경로로 이미지를 불러옵니다.
+    logo_img = Image.open(logo_path)
+    
+    # 4. 페이지 설정에 적용합니다.
+    st.set_page_config(
+        page_title="집스탯 PRO V2.1",
+        page_icon=logo_img,
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+except FileNotFoundError:
+    # 혹시라도 파일이 정말 없을 때를 대비한 예외 처리
+    st.error(f"이미지 파일을 찾을 수 없습니다: {logo_path}")
+    st.set_page_config(page_title="집스탯 PRO V2.1", page_icon="🏢")
+
+# 이후 나머지 앱 코드 작성...
+
+
+#{
+#"component": "LlmGeneratedComponent",
+#"props": {
+#"height": "650px",
+#"prompt": "Create an interactive tutor widget to help a user debug a FileNotFoundError in a Streamlit app. \n\n1. Objective: Visualize the project folder structure, show a simplified app.py code snippet, and simulate different run scenarios to illustrate how the working directory affects relative file paths.\n2. Structure: \n    * Main Section:\n        * Visual representation of the folder structure (e.g., Main/, app.py, logo.png in the same directory).\n        * A Code Snippet Viewer displaying the essential from PIL import Image and logo_img = Image.open(\"logo.png\") lines, with the filename parameter highlighted.\n        * Simulation Controls: Two buttons labeled '프로젝트 루트에서 실행' (Run from Project Root) and '외부 폴더에서 실행' (Run from Outside).\n    * Output Section:\n        * An App Preview area below the controls. \n    * Explanation Section: A text area below the preview.\n3. Behavior:\n    * Initial State: Visual structure shows app.py and logo.png in the same directory. The Code Viewer highlights 'logo.png'. The App Preview is empty or shows a generic placeholder. The Explanation states that running from the correct directory is crucial.\n    * User Action (프로젝트 루트에서 실행): When this button is clicked, simulate success: the visual structure highlights logo.png, the Code Viewer might show a subtle success indicator (no horizontal layout splits), the App Preview displays a generic simulated logo image (not a named color/specific design), and the Explanation explains that because the app ran from the root, logo.png was found relative to app.py as coded. Avoid horizontal splits. Use only generic functional language for styling.\n    * User Action (외부 폴더에서 실행): When this button is clicked, simulate failure: The visual structure shows a missing or failed indicator for logo.png, the App Preview shows a clear 'ERROR: 파일을 찾을 수 없습니다' (FileNotFoundError) overlay, and the Explanation explains that because the app ran from outside the project folder, it looked for logo.png in the wrong place and failed, even though the files are in the same folder on disk. Avoid horizontal splits. Use only generic functional language for styling.\n4. Data: Use the user's specific filenames logo.png and app.py and directory structure description. Use generalized code snippets. All UI text and explanations must be in Korean, translating terms like 'File Not Found Error', 'Working Directory', 'Relative Path', 'Project Root', 'Run', 'Code', 'Output', 'Preview' where appropriate, or keeping them in English if they are technical standard terms common in Korean context and better left as is for user clarity (like app.py, logo.png, FileNotFoundError). Be precise and consistent with terms like 앱 파일, 이미지 파일, 실행 위치. Do not use named colors, fonts, horizontal splits, placeholders like 'Sample Data', persistence, or suggest external resources."
+#}
+#}
 
 # 내가 만든 로고 이미지 파일 불러오기
 logo_img = Image.open("logo.png")
