@@ -1,89 +1,63 @@
-import streamlit as st
-import pandas as pd
+import os
+import json
 import requests
 import xml.etree.ElementTree as ET
-import json
-import os
 from datetime import datetime
+import pandas as pd
+import streamlit as st
+from PIL import Image
 
-from PIL import Image  # 이미지를 불러오기 위한 모듈 추가
-
-# 1. 현재 실행 중인 app.py 파일이 있는 폴더 경로를 자동으로 가져옵니다.
-# (이 코드를 사용하면 터미널을 어디서 실행하든 상관없어집니다!)
+# ==========================================
+# 0. 경로 설정 및 아이콘 로드 (최상단 배치 필수)
+# ==========================================
+# 현재 실행 중인 파일의 절대 경로를 가져와서 파일 탐색 기준점으로 삼습니다.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# 2. 그 폴더 경로와 'logo.png' 이름을 합쳐서 전체 경로를 만듭니다.
 logo_path = os.path.join(current_dir, "logo.png")
+COUNTER_FILE = os.path.join(current_dir, "visitor_count.json")
 
+# 로고 이미지 불러오기 시도
+icon_to_show = "🏢"  # 기본 아이콘
 try:
-    # 3. 계산된 전체 경로로 이미지를 불러옵니다.
-    logo_img = Image.open(logo_path)
-    
-    # 4. 페이지 설정에 적용합니다.
-    st.set_page_config(
-        page_title="집스탯 PRO V2.1",
-        page_icon=logo_img,
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-except FileNotFoundError:
-    # 혹시라도 파일이 정말 없을 때를 대비한 예외 처리
-    st.error(f"이미지 파일을 찾을 수 없습니다: {logo_path}")
-    st.set_page_config(page_title="집스탯 PRO V2.1", page_icon="🏢")
+    if os.path.exists(logo_path):
+        logo_img = Image.open(logo_path)
+        icon_to_show = logo_img
+except Exception:
+    pass
 
-# 이후 나머지 앱 코드 작성...
-
-
-#{
-#"component": "LlmGeneratedComponent",
-#"props": {
-#"height": "650px",
-#"prompt": "Create an interactive tutor widget to help a user debug a FileNotFoundError in a Streamlit app. \n\n1. Objective: Visualize the project folder structure, show a simplified app.py code snippet, and simulate different run scenarios to illustrate how the working directory affects relative file paths.\n2. Structure: \n    * Main Section:\n        * Visual representation of the folder structure (e.g., Main/, app.py, logo.png in the same directory).\n        * A Code Snippet Viewer displaying the essential from PIL import Image and logo_img = Image.open(\"logo.png\") lines, with the filename parameter highlighted.\n        * Simulation Controls: Two buttons labeled '프로젝트 루트에서 실행' (Run from Project Root) and '외부 폴더에서 실행' (Run from Outside).\n    * Output Section:\n        * An App Preview area below the controls. \n    * Explanation Section: A text area below the preview.\n3. Behavior:\n    * Initial State: Visual structure shows app.py and logo.png in the same directory. The Code Viewer highlights 'logo.png'. The App Preview is empty or shows a generic placeholder. The Explanation states that running from the correct directory is crucial.\n    * User Action (프로젝트 루트에서 실행): When this button is clicked, simulate success: the visual structure highlights logo.png, the Code Viewer might show a subtle success indicator (no horizontal layout splits), the App Preview displays a generic simulated logo image (not a named color/specific design), and the Explanation explains that because the app ran from the root, logo.png was found relative to app.py as coded. Avoid horizontal splits. Use only generic functional language for styling.\n    * User Action (외부 폴더에서 실행): When this button is clicked, simulate failure: The visual structure shows a missing or failed indicator for logo.png, the App Preview shows a clear 'ERROR: 파일을 찾을 수 없습니다' (FileNotFoundError) overlay, and the Explanation explains that because the app ran from outside the project folder, it looked for logo.png in the wrong place and failed, even though the files are in the same folder on disk. Avoid horizontal splits. Use only generic functional language for styling.\n4. Data: Use the user's specific filenames logo.png and app.py and directory structure description. Use generalized code snippets. All UI text and explanations must be in Korean, translating terms like 'File Not Found Error', 'Working Directory', 'Relative Path', 'Project Root', 'Run', 'Code', 'Output', 'Preview' where appropriate, or keeping them in English if they are technical standard terms common in Korean context and better left as is for user clarity (like app.py, logo.png, FileNotFoundError). Be precise and consistent with terms like 앱 파일, 이미지 파일, 실행 위치. Do not use named colors, fonts, horizontal splits, placeholders like 'Sample Data', persistence, or suggest external resources."
-#}
-#}
-
-# 내가 만든 로고 이미지 파일 불러오기
-logo_img = Image.open("logo.png")
-
-# ==========================================
-# 0. 기본 설정 및 스타일링
-# ==========================================
-#st.set_page_config(
-#   page_title="집스탯 PRO V2.1", 
-#    page_icon="🏢", 
-#    layout="wide", 
-#    initial_sidebar_state="expanded" 
-#)
-
-# page_icon 자리에 이모지 대신 img 변수를 쏙 넣기
+# [주의] st.set_page_config는 반드시 코드의 가장 첫 번째 Streamlit 명령이어야 합니다.
 st.set_page_config(
-    page_title="집스탯 PRO V2.1", 
-    page_icon=logo_img,  # 👈 여기가 핵심!
-    layout="wide", 
-    initial_sidebar_state="expanded" 
+    page_title="집스탯 PRO V2.1",
+    page_icon=icon_to_show,
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
-# 공통 설명문 CSS 스타일 (모바일 최적화: 14px, 줄간격 1.6, 순수 HTML 사용)
+
+# 공통 설명문 CSS 스타일 (모바일 최적화)
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
 # ==========================================
-# 📊 방문자 수 트래킹 엔진
+# 📊 방문자 수 트래킹 엔진 (경로 최적화 버전)
 # ==========================================
-COUNTER_FILE = "visitor_count.json"
-
 def update_and_get_visitor_count():
     today = datetime.now().strftime("%Y-%m-%d")
     
+    # 파일이 없으면 초기 데이터 생성
     if not os.path.exists(COUNTER_FILE):
         data = {"total": 0, "daily": {}}
         with open(COUNTER_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
             
+    # 데이터 읽기
     with open(COUNTER_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except:
+            data = {"total": 0, "daily": {}}
         
     if today not in data["daily"]:
         data["daily"][today] = 0
         
+    # 세션 상태를 이용해 한 접속당 한 번만 카운트 증가
     if 'has_visited' not in st.session_state:
         data["total"] += 1
         data["daily"][today] += 1
@@ -1010,7 +984,7 @@ def run_loan_simulator_app():
                     c2.success(f"✅ **스트레스 DSR 통과 (안정권)**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)")
 
                 st.markdown("---")
-                st.markdown("#### 💸 2. 자금조달 및 실제 월 상환액 브리핑")
+                st.markdown("#### 💸 2. 자금조달 및 실제 월 상환액 브리팅")
                 monthly_pmt_won, total_interest_won = calculate_loan_payment(required_loan, interest_rate, loan_years, is_interest_only=False)
                 
                 r1, r2, r3 = st.columns(3)
@@ -1069,7 +1043,6 @@ def run_loan_simulator_app():
                 st.markdown("#### 📊 맞춤형 전세대출 추천 결과 (1~3순위)")
                 recommended_loans = []
                 
-                # 1. 버팀목 (정부기금)
                 btm_deposit_limit = 30000 if is_capital_jeonse else 20000
                 btm_max_loan = 12000 if is_capital_jeonse else 8000
                 if jeonse_homes == "무주택" and jeonse_deposit <= btm_deposit_limit:
@@ -1083,7 +1056,6 @@ def run_loan_simulator_app():
                             "advantage": "시중 은행 대비 압도적으로 낮은 최저 금리를 제공하여 이자 부담이 가장 적습니다!"
                         })
                 
-                # 2. HUG / HF (일반 보증)
                 hug_deposit_limit = 70000 if is_capital_jeonse else 50000
                 hug_max_loan = 40000
                 hf_max_loan = 22200
@@ -1097,10 +1069,9 @@ def run_loan_simulator_app():
                             "name": "HUG 안심전세대출 / HF 전세대출",
                             "limit": f"HUG 최대 {int(actual_hug_limit):,}만 원 / HF 최대 {int(actual_hf_limit):,}만 원",
                             "condition": f"보증금 {'수도권 7억' if is_capital_jeonse else '지방 5억'} 원 이하 (1주택자는 한도 제한 가능)",
-                            "advantage": "HUG 상품의 경우, 대출과 동시에 전세보증금 반환보증보험이 100% 자동 가입되어 소중한 보증금을 가장 안전하게 지킬 수 있습니다."
+                            "advantage": "HUG 상품의 경우, 대출과 동시에 전세보증금 반환보증보험이 100% 자동 가입되어 깡통전세 예방에 탁월합니다."
                         })
                 
-                # 3. SGI 서울보증보험 (고가 전세)
                 sgi_max_loan = 50000 if jeonse_homes == "무주택" else 30000
                 actual_sgi_limit = min(sgi_max_loan, jeonse_deposit * 0.8)
                 
@@ -1162,7 +1133,6 @@ def run_loan_simulator_app():
         <b>3. 공통 요건:</b> 가구당 순자산 4.69억 원 이하
         </div>""", unsafe_allow_html=True)
 
-    # 🔥 전세대출 3종 요약본 추가
     with st.expander("🔍 주요 전세자금대출(버팀목/HUG/SGI) 핵심 요약", expanded=False):
         st.markdown(f"""{DETAIL_STYLE}
         <b>💡 공통 한도 유의사항:</b> 대부분의 전세대출은 <b>전세보증금의 최대 80%</b>까지만 대출이 가능합니다. (단, 신혼부부나 청년 등 일부 상품은 조건에 따라 90%까지 가능)
@@ -1217,7 +1187,13 @@ def main():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-        st.title("⚙️ 프롭테크 메뉴")
+        # 사이드바 상단 로고 이미지 (경로 최적화 반영)
+        if isinstance(icon_to_show, Image.Image):
+            st.image(icon_to_show, use_container_width=True)
+        else:
+            st.title("🏢 집스탯 (ZipStat)")
+        
+        # 방문자 수 표시 (업데이트 로직 포함)
         total, daily = update_and_get_visitor_count()
         c1, c2 = st.columns(2)
         c1.metric("오늘 방문", f"{daily} 명")
