@@ -6,16 +6,26 @@ import json
 import os
 from datetime import datetime
 
+# 내가 만든 로고 이미지 파일 불러오기
+logo_img = Image.open("logo.png")
+
 # ==========================================
 # 0. 기본 설정 및 스타일링
 # ==========================================
+#st.set_page_config(
+#   page_title="집스탯 PRO V2.1", 
+#    page_icon="🏢", 
+#    layout="wide", 
+#    initial_sidebar_state="expanded" 
+#)
+
+# page_icon 자리에 이모지 대신 img 변수를 쏙 넣기
 st.set_page_config(
     page_title="집스탯 PRO V2.1", 
-    page_icon="🏢", 
+    page_icon=logo_img,  # 👈 여기가 핵심!
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
-
 # 공통 설명문 CSS 스타일 (모바일 최적화: 14px, 줄간격 1.6, 순수 HTML 사용)
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
