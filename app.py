@@ -6,6 +6,8 @@ import json
 import os
 from datetime import datetime
 
+from PIL import Image  # 이미지를 불러오기 위한 모듈 추가
+
 # 내가 만든 로고 이미지 파일 불러오기
 logo_img = Image.open("logo.png")
 
