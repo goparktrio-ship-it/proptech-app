@@ -544,7 +544,7 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
                     st.success("✅ 전세가율 계산 완료!")
                     
-       elif category == "🚀 1년 내 최고가 분석":
+        elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
             # 텍스트 변경: 병렬 처리 중임을 알림
