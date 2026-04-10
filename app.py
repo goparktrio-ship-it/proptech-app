@@ -59,7 +59,9 @@ def update_and_get_visitor_count():
         st.session_state['has_visited'] = True 
         with open(COUNTER_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
-        st.cache_data.clear()
+            
+        # 🚨 [최적화 2] 전체 캐시 폭파 방지! 방문자 함수 캐시만 명시적으로 삭제
+        read_visitor_data.clear()
             
     return data["total"], data["daily"][today]
 
@@ -474,6 +476,7 @@ def check_policy_loan_eligibility(prop_price, income, is_married, has_newborn, i
 # ==========================================
 # 4. 화면 구성 (앱 1: 실거래가)
 # ==========================================
+@st.fragment # 🚀 [최적화 3] 부분 렌더링 적용 (전체 새로고침 방지)
 def run_real_estate_app():
     st.subheader("🏠 실거래가/전세가율")
     st.markdown("#### 🔍 검색 조건 설정")
@@ -516,8 +519,8 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
                     st.success("✅ 전세가율 계산 완료!")
                     
-        # [최적화 2] 1년치 데이터 병렬 수집 로직 적용 및 들여쓰기 교정 완료
         elif category == "🚀 1년 내 최고가 분석":
+            # 🚀 [최적화 4] 병렬 데이터 수집 적용 완료
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
             my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수집 중입니다. (🚀 병렬 가속 중)")
@@ -528,7 +531,6 @@ def run_real_estate_app():
                     df['조회년월'] = ym
                 return df
 
-            # ThreadPoolExecutor를 사용해 12개월 데이터를 동시에 호출
             with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
                 futures = {executor.submit(fetch_month_data, ym): ym for ym in months_to_fetch}
                 completed_count = 0
@@ -650,6 +652,7 @@ def run_real_estate_app():
 # ==========================================
 # 5. 화면 구성 (앱 2: 취득세/보유세)
 # ==========================================
+@st.fragment # 🚀 [최적화 3] 부분 렌더링 적용
 def run_tax_app():
     st.subheader("💰 취득세/보유세 계산")
     st.info("📌 **적용 기준: 2026년 최신 세법 기준 (재산세/종부세 포함)**")
@@ -749,6 +752,7 @@ def run_tax_app():
 # ==========================================
 # 6. 화면 구성 (앱 3: 양도소득세)
 # ==========================================
+@st.fragment # 🚀 [최적화 3] 부분 렌더링 적용
 def run_capital_gains_tax_app():
     st.subheader("📈 양도소득세 계산")
     st.info("📌 **매수/매도 시점의 규제지역 여부**를 자동으로 판독하여 거주요건 및 중과 여부를 체크합니다.")
@@ -881,6 +885,7 @@ def run_capital_gains_tax_app():
 # ==========================================
 # 7. 화면 구성 (앱 4: 자금조달 및 대출 V2.1)
 # ==========================================
+@st.fragment # 🚀 [최적화 3] 부분 렌더링 적용
 def run_loan_simulator_app():
     st.subheader("🏦 대출 및 자금조달")
     
@@ -1194,13 +1199,13 @@ def main():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-        # [최적화 3] 사이드바 로고 경로 직접 호출 방식으로 교체
+        # [최적화 3] 사이드바 로고 직접 호출
         if os.path.exists(logo_path):
             st.image(logo_path, use_container_width=True)
         else:
             st.title("🏢 집스탯 (ZipStat)")
         
-        # 방문자 수 표시 (업데이트 로직 포함)
+        # 방문자 수 표시
         total, daily = update_and_get_visitor_count()
         c1, c2 = st.columns(2)
         c1.metric("오늘 방문", f"{daily} 명")
