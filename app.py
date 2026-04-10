@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 import concurrent.futures
+import plotly.express as px  
 
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
 from engine import *
@@ -32,6 +33,12 @@ else:
 
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
+# 🚀 [추가] 양천구 데이터 자동 병합 및 가나다순 정렬
+if '양천구' not in GU_CODES:
+    GU_CODES['양천구'] = '11470'
+# 지역구 목록을 가나다순으로 깔끔하게 정렬
+SORTED_GU_LIST = sorted(list(GU_CODES.keys()))
+
 # ==========================================
 # 1. 화면 구성 (앱 1: 실거래가)
 # ==========================================
@@ -42,7 +49,7 @@ def run_real_estate_app():
     
     col1, col2 = st.columns(2)
     with col1:
-        selected_gu = st.selectbox("**지역구 선택**", list(GU_CODES.keys()))
+        selected_gu = st.selectbox("**지역구 선택**", SORTED_GU_LIST)
         lawd_cd = GU_CODES[selected_gu]
     with col2:
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
@@ -115,14 +122,14 @@ def run_real_estate_app():
             df = st.session_state['data'].copy()
             
             if info['cat'] == "매매":
-                target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor'] 
+                target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealDay'] 
                 exist_cols = [c for c in target_cols if c in df.columns]
-                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층'})
+                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealDay': '일'})
                 price_col = '매매가(만원)' 
             else:
-                target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor'] 
+                target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor', 'dealDay'] 
                 exist_cols = [c for c in target_cols if c in df.columns]
-                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층'})
+                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealDay': '일'})
                 price_col = '보증금(만원)' 
 
             if '면적(㎡)' in df.columns:
@@ -160,7 +167,9 @@ def run_real_estate_app():
                     col3.metric(f"최저가 📉", f"{int(min_row[price_col]):,} 만원")
 
             st.markdown("<br>", unsafe_allow_html=True) 
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            # 🚀 한 달 치 꺾은선 그래프는 삭제하고 표만 깔끔하게 출력합니다.
+            display_df = df.drop(columns=['일']) if '일' in df.columns else df
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
             df_t, df_r = st.session_state['data_trade'].copy(), st.session_state['data_rent'].copy()
@@ -189,6 +198,19 @@ def run_real_estate_app():
                         merged = merged[merged['법정동'] == sel_dong_gap].reset_index(drop=True)
 
                     if not merged.empty:
+                        top_10_df = merged.head(10)
+                        fig2 = px.bar(
+                            top_10_df, x='아파트명', y='전세가율(%)',
+                            title=f"🔥 갭투자 추천! 전세가율 TOP 10",
+                            text='전세가율(%)', 
+                            color='전세가율(%)', 
+                            color_continuous_scale="Reds", 
+                            template="plotly_white"
+                        )
+                        fig2.update_traces(texttemplate='%{text}%', textposition='outside')
+                        fig2.update_layout(yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-5), 100]) 
+                        st.plotly_chart(fig2, use_container_width=True)
+
                         for i in range(min(5, len(merged))):
                             row = merged.iloc[i]
                             st.info(f"### {i+1}위: {row['아파트명']}\n**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n📊 **전세가율: {row['전세가율(%)']}%**\n💰 **예상 실투자금: {row['실투자금(만원)']:,}만 원**")
@@ -201,34 +223,47 @@ def run_real_estate_app():
             df['num_area'] = pd.to_numeric(df['excluUseAr'], errors='coerce').round(1)
             df = df.dropna(subset=['num_price', 'num_area'])
             
-            max_p = df.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index().rename(columns={'num_price': '1년최고가(만원)'})
-            df_t = df[df['조회년월'] == info['ym']]
-            target_p = df_t.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index().rename(columns={'num_price': '당월최고가(만원)'})
-            merged = pd.merge(target_p, max_p, on=['umdNm', 'aptNm', 'num_area'], how='inner')
-            
-            new_highs = merged[merged['당월최고가(만원)'] >= merged['1년최고가(만원)']].sort_values('당월최고가(만원)', ascending=False).reset_index(drop=True)
-            
-            new_highs = new_highs.rename(columns={
-                'umdNm': '법정동', 
-                'aptNm': '아파트명', 
-                'num_area': '면적(㎡)'
-            })
-
             st.markdown("---")
-            st.markdown(f"#### 🚀 {info['gu']} 1년 내 최고가 단지")
+            st.markdown(f"#### 🚀 {info['gu']} 1년 시세 트렌드 및 최고가 분석")
             
-            if not new_highs.empty:
-                dong_list_h = sorted(new_highs['법정동'].dropna().unique().tolist())
-                sel_dong_h = st.selectbox("**'동' 선택**", ["구 전체보기"] + dong_list_h, key="high_dong")
-                if sel_dong_h != "구 전체보기":
-                    new_highs = new_highs[new_highs['법정동'] == sel_dong_h].reset_index(drop=True)
+            f_col1, f_col2, f_col3 = st.columns(3)
+            with f_col1:
+                dong_list = sorted(df['umdNm'].unique())
+                sel_dong = st.selectbox("**1. 동 선택**", dong_list, key="high_dong")
+                df = df[df['umdNm'] == sel_dong]
+            with f_col2:
+                apt_list = sorted(df['aptNm'].unique())
+                sel_apt = st.selectbox("**2. 아파트 선택**", apt_list, key="high_apt")
+                df = df[df['aptNm'] == sel_apt]
+            with f_col3:
+                area_list = sorted(df['num_area'].unique())
+                sel_area = st.selectbox("**3. 면적(㎡) 선택**", area_list, key="high_area")
+                df_filtered = df[df['num_area'] == sel_area].sort_values('조회년월')
 
-                if not new_highs.empty:
-                    for i in range(min(5, len(new_highs))):
-                        row = new_highs.iloc[i]
-                        st.success(f"### 🏆 {row['아파트명']}\n**📍 {row['법정동']} | 📐 {row['면적(㎡)']}㎡**\n🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**")
-                    with st.expander("📊 전체 데이터 보기"):
-                        st.dataframe(new_highs, use_container_width=True, hide_index=True)
+            if not df_filtered.empty:
+                trend_df = df_filtered.groupby('조회년월')['num_price'].mean().reset_index()
+                
+                # 🚀 1년 치 데이터 꺾은선 그래프는 그대로 유지합니다.
+                fig = px.line(
+                    trend_df, x='조회년월', y='num_price', markers=True,
+                    title=f"📅 {sel_apt} ({sel_area}㎡) 최근 1년 시세 흐름",
+                    labels={'조회년월': '거래월', 'num_price': '평균거래가(만원)'},
+                    template="plotly_white"
+                )
+                fig.update_traces(line_color="#1E3A8A", line_width=3, marker_size=10)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                max_val = int(df_filtered['num_price'].max())
+                avg_val = int(df_filtered['num_price'].mean())
+                c1, c2 = st.columns(2)
+                c1.metric("1년 내 최고가 🏆", f"{max_val:,} 만원")
+                c2.metric("1년 평균가 📊", f"{avg_val:,} 만원")
+            
+            with st.expander("📊 상세 거래 내역 보기"):
+                display_df = df_filtered[['조회년월', 'num_price', 'floor']].rename(columns={
+                    '조회년월': '거래월', 'num_price': '거래가(만원)', 'floor': '층'
+                })
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # ==========================================
 # 2. 화면 구성 (앱 2: 취득세/보유세)
@@ -539,7 +574,7 @@ def run_loan_simulator_app():
             if required_loan == 0:
                 st.success("보유 현금이 충분하여 대출이 필요하지 않습니다! 🎉")
             elif current_homes == "2주택 이상" and is_regulated_loan:
-                st.error("🚨 **대출 불가!** 다주택자는 규제지역 내에서 주택 취득 목적의 주담대를 받을 수 없습니다. (LTV 0%)")
+                st.error("🚨 **대출 불가!** 다주택자는 규제지역 내에서 주택 취득 목적의 주담대를 받을 수문을 받을 수 없습니다. (LTV 0%)")
             else:
                 policy_matches = check_policy_loan_eligibility(ltv_base_price, annual_income, is_married, has_newborn, is_capital_area, is_first_time)
                 if policy_matches:
@@ -687,7 +722,7 @@ def run_loan_simulator_app():
                         })
 
                 if not recommended_loans:
-                    st.error(f"🚨 현재 입력하신 금액 (보증금 {jeonse_deposit:,}만 원, 필요 대출 {required_jeonse_loan:,}만 원) 전체를 방어할 수 있는 보증 상품 한도가 부족합니다. 현금을 더 확보해야 큰일납니다.")
+                    st.error(f"🚨 현재 입력하신 금액 (보증금 {jeonse_deposit:,}만 원, 필요 대출 {required_jeonse_loan:,}만 원) 전체를 방어할 수 있는 보증 상품 한도가 부족합니다. 현금을 더 확보해야 합니다.")
                 else:
                     for loan in recommended_loans:
                         st.success(f"### {loan['rank']} | {loan['name']}\n"
@@ -780,7 +815,6 @@ def main():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-        # 1. 로고 영역
         if os.path.exists(logo_path):
             st.image(logo_path, use_container_width=True)
         else:
@@ -788,7 +822,6 @@ def main():
         
         st.markdown("---")
         
-        # 2. 부동산 뉴스 영역 (위로 올림)
         st.markdown("### 📢 부동산/금융 최신 트렌드")
         st.markdown("""
         <div class="news-box bg-red">
@@ -811,7 +844,6 @@ def main():
         
         st.markdown("---")
         
-        # 3. 방문자 수 표시 (아래로 내리고 텍스트 크기 축소)
         total, daily = update_and_get_visitor_count()
         st.markdown(f"""
         <div style="text-align: center; color: #888888; font-size: 13px; margin-top: 10px;">
@@ -819,12 +851,11 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # 4. 저작권 및 개발자 정보 (사이드바 최하단)
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("""
         <div style="text-align: center; color: #aaaaaa; font-size: 11px;">
             © 2026 ZipStat PRO.<br>All rights reserved.<br><br>
-            👨‍💻 Developed by <b>[***]</b>
+            👨‍💻 Developed by <b>[사용자님의 닉네임/이름]</b>
         </div>
         """, unsafe_allow_html=True)
 
