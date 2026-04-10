@@ -6,57 +6,29 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 from PIL import Image
-import base64
-import concurrent.futures  # 🚀 최적화를 위해 추가된 모듈
+import concurrent.futures  # 🚀 API 병렬 처리를 위한 모듈 추가
 
 # ==========================================
-# [최적화] 자산 로딩 및 아이콘 설정 엔진
+# [최적화 1] 초기 로딩을 느리게 만들던 Base64 엔진 완전히 삭제
 # ==========================================
-@st.cache_resource
-def get_icon_assets(path):
-    """
-    로고 이미지를 읽어 브라우저 탭(Data URI) 및 홈 화면용(Base64) 데이터를 생성합니다.
-    이미지 파일이 없을 경우 기본 이모지를 반환합니다.
-    """
-    default_emoji = "🏢"
-    if not os.path.exists(path):
-        return default_emoji, ""
-    
-    try:
-        with open(path, "rb") as f:
-            data = f.read()
-            b64_str = base64.b64encode(data).decode()
-            # 탭 아이콘용 Data URI (브라우저 호환성 최상)
-            data_uri = f"data:image/png;base64,{b64_str}"
-            return data_uri, b64_str
-    except Exception:
-        return default_emoji, ""
-
 # 0. 경로 설정 및 자산 로드 (최상단)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 logo_path = os.path.join(current_dir, "logo.png")
 COUNTER_FILE = os.path.join(current_dir, "visitor_count.json")
 
-# 아이콘 자산 확보 (캐싱 적용으로 속도 저하 방지)
-page_icon_data, raw_b64 = get_icon_assets(logo_path)
+# 무거운 변환 작업 없이 PIL Image 객체로 가볍게 로드
+try:
+    img_icon = Image.open(logo_path)
+except FileNotFoundError:
+    img_icon = "🏢"  # 파일이 없을 경우 대비
 
-# [필독] st.set_page_config는 반드시 코드의 첫 번째 Streamlit 명령이어야 함
+# [필독] st.set_page_config는 반드시 코드의 첫 번째 명령이어야 함
 st.set_page_config(
     page_title="집스탯 PRO V2.1",
-    page_icon=page_icon_data,  # Data URI를 직접 전달하여 파비콘 실종 문제 해결
+    page_icon=img_icon,  # 네이티브 이미지 객체 직접 전달
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# 스마트폰 홈 화면 아이콘(Apple Touch Icon) 및 강제 파비콘 주입
-if raw_b64:
-    icon_html = f"""
-    <link rel="apple-touch-icon" href="data:image/png;base64,{raw_b64}">
-    <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{raw_b64}">
-    <link rel="shortcut icon" type="image/png" href="data:image/png;base64,{raw_b64}">
-    <link rel="icon" type="image/png" href="data:image/png;base64,{raw_b64}">
-    """
-    st.markdown(icon_html, unsafe_allow_html=True)
 
 # 공통 설명문 CSS 스타일
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
@@ -544,35 +516,29 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
                     st.success("✅ 전세가율 계산 완료!")
                     
+        # [최적화 2] 1년치 데이터 병렬 수집 로직 적용 및 들여쓰기 교정 완료
         elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
-            # 텍스트 변경: 병렬 처리 중임을 알림
             my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수집 중입니다. (🚀 병렬 가속 중)")
             
-            # 1. 멀티스레드에서 실행할 단일 작업 함수 정의
             def fetch_month_data(ym):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
                 if not df.empty:
                     df['조회년월'] = ym
                 return df
 
-            # 2. ThreadPoolExecutor를 사용해 12개의 요청을 동시에 실행
+            # ThreadPoolExecutor를 사용해 12개월 데이터를 동시에 호출
             with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
-                # 12개월 데이터를 병렬로 던짐
                 futures = {executor.submit(fetch_month_data, ym): ym for ym in months_to_fetch}
                 completed_count = 0
-                
-                # 먼저 끝나는 응답부터 순차적으로 처리 및 프로그래스 바 업데이트
                 for future in concurrent.futures.as_completed(futures):
                     df = future.result()
                     if not df.empty:
                         all_data.append(df)
-                    
                     completed_count += 1
                     my_bar.progress(completed_count / 12, text=f"{selected_gu} 데이터 병렬 수집 완료... ({completed_count}/12)")
             
-            # 3. 데이터 병합 (기존 로직과 동일)
             if all_data:
                 df_all = pd.concat(all_data, ignore_index=True)
                 st.session_state['data_high'] = df_all
@@ -581,8 +547,7 @@ def run_real_estate_app():
             else:
                 st.error("데이터를 불러오지 못했습니다.")
                 st.session_state['info'] = None
-        
-    
+
     if 'info' in st.session_state and st.session_state['info'] is not None:
         info = st.session_state['info']
         
@@ -1229,10 +1194,9 @@ def main():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-        # 사이드바 상단 로고 이미지 (경로 최적화 반영)
-        # 로직 수정: page_icon_data(Data URI)가 있으면 표시
-        if "base64" in page_icon_data:
-            st.image(page_icon_data, use_container_width=True)
+        # [최적화 3] 사이드바 로고 경로 직접 호출 방식으로 교체
+        if os.path.exists(logo_path):
+            st.image(logo_path, use_container_width=True)
         else:
             st.title("🏢 집스탯 (ZipStat)")
         
@@ -1278,3 +1242,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
