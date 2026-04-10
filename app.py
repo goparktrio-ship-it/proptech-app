@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 import base64
+import concurrent.futures  # 🚀 최적화를 위해 추가된 모듈
 
 # ==========================================
 # [최적화] 자산 로딩 및 아이콘 설정 엔진
@@ -543,27 +544,45 @@ def run_real_estate_app():
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
                     st.success("✅ 전세가율 계산 완료!")
                     
-        elif category == "🚀 1년 내 최고가 분석":
+       elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
-            my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수집 중입니다.")
+            # 텍스트 변경: 병렬 처리 중임을 알림
+            my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수집 중입니다. (🚀 병렬 가속 중)")
             
-            for i, ym in enumerate(months_to_fetch):
+            # 1. 멀티스레드에서 실행할 단일 작업 함수 정의
+            def fetch_month_data(ym):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
                 if not df.empty:
                     df['조회년월'] = ym
-                    all_data.append(df)
-                my_bar.progress((i + 1) / 12, text=f"{selected_gu} {ym} 데이터 수집 완료... ({i+1}/12)")
+                return df
+
+            # 2. ThreadPoolExecutor를 사용해 12개의 요청을 동시에 실행
+            with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+                # 12개월 데이터를 병렬로 던짐
+                futures = {executor.submit(fetch_month_data, ym): ym for ym in months_to_fetch}
+                completed_count = 0
+                
+                # 먼저 끝나는 응답부터 순차적으로 처리 및 프로그래스 바 업데이트
+                for future in concurrent.futures.as_completed(futures):
+                    df = future.result()
+                    if not df.empty:
+                        all_data.append(df)
+                    
+                    completed_count += 1
+                    my_bar.progress(completed_count / 12, text=f"{selected_gu} 데이터 병렬 수집 완료... ({completed_count}/12)")
             
+            # 3. 데이터 병합 (기존 로직과 동일)
             if all_data:
                 df_all = pd.concat(all_data, ignore_index=True)
                 st.session_state['data_high'] = df_all
                 st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '최고가'}
-                st.success("✅ 1년 치 최고가 판독 완료!")
+                st.success("✅ 1년 치 최고가 병렬 판독 완료!")
             else:
                 st.error("데이터를 불러오지 못했습니다.")
                 st.session_state['info'] = None
-
+        
+    
     if 'info' in st.session_state and st.session_state['info'] is not None:
         info = st.session_state['info']
         
