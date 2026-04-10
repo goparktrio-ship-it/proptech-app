@@ -25,13 +25,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 글로벌 환경 설정 (API 키)
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
 else:
     SERVICE_KEY = ""
 
-# 공통 설명문 CSS 스타일
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
 # ==========================================
@@ -116,7 +114,6 @@ def run_real_estate_app():
         if info['mode'] == '단순조회' and 'data' in st.session_state:
             df = st.session_state['data'].copy()
             
-            # 🚀 [수정 1] 모바일 가독성을 위해 불필요한 'dealYear, dealMonth, dealDay' 항목 제거
             if info['cat'] == "매매":
                 target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor'] 
                 exist_cols = [c for c in target_cols if c in df.columns]
@@ -128,7 +125,6 @@ def run_real_estate_app():
                 df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층'})
                 price_col = '보증금(만원)' 
 
-            # 정렬 버그 해결: 문자열 데이터를 숫자로 변환
             if '면적(㎡)' in df.columns:
                 df['면적(㎡)'] = pd.to_numeric(df['면적(㎡)'], errors='coerce')
             if '층' in df.columns:
@@ -141,8 +137,6 @@ def run_real_estate_app():
             st.subheader(f"🏘️ {info['gu']} 상세 단지 필터링")
             
             f_col1, f_col2 = st.columns(2)
-            
-            # 🚀 [수정 2] 동을 선택하면, 해당 동의 아파트 목록만 나오도록 이중 필터링 적용
             with f_col1:
                 dong_list = sorted(df['법정동'].dropna().unique().tolist())
                 selected_dong = st.selectbox("**1. '동' 선택**", ["전체보기"] + dong_list, key="simple_dong")
@@ -166,7 +160,6 @@ def run_real_estate_app():
                     col3.metric(f"최저가 📉", f"{int(min_row[price_col]):,} 만원")
 
             st.markdown("<br>", unsafe_allow_html=True) 
-            # 🚀 [수정 3] 모바일에서 넓게 보이도록 hide_index=True 옵션 추가 (맨 왼쪽 번호표 숨김)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
@@ -212,21 +205,29 @@ def run_real_estate_app():
             df_t = df[df['조회년월'] == info['ym']]
             target_p = df_t.groupby(['umdNm', 'aptNm', 'num_area'])['num_price'].max().reset_index().rename(columns={'num_price': '당월최고가(만원)'})
             merged = pd.merge(target_p, max_p, on=['umdNm', 'aptNm', 'num_area'], how='inner')
+            
             new_highs = merged[merged['당월최고가(만원)'] >= merged['1년최고가(만원)']].sort_values('당월최고가(만원)', ascending=False).reset_index(drop=True)
+            
+            # 🚀 [추가됨] 전체보기 표 영문 컬럼을 한국어로 깔끔하게 이름 변경!
+            new_highs = new_highs.rename(columns={
+                'umdNm': '법정동', 
+                'aptNm': '아파트명', 
+                'num_area': '면적(㎡)'
+            })
 
             st.markdown("---")
             st.markdown(f"#### 🚀 {info['gu']} 1년 내 최고가 단지")
             
             if not new_highs.empty:
-                dong_list_h = sorted(new_highs['umdNm'].dropna().unique().tolist())
+                dong_list_h = sorted(new_highs['법정동'].dropna().unique().tolist())
                 sel_dong_h = st.selectbox("**'동' 선택**", ["구 전체보기"] + dong_list_h, key="high_dong")
                 if sel_dong_h != "구 전체보기":
-                    new_highs = new_highs[new_highs['umdNm'] == sel_dong_h].reset_index(drop=True)
+                    new_highs = new_highs[new_highs['법정동'] == sel_dong_h].reset_index(drop=True)
 
                 if not new_highs.empty:
                     for i in range(min(5, len(new_highs))):
                         row = new_highs.iloc[i]
-                        st.success(f"### 🏆 {row['aptNm']}\n**📍 {row['umdNm']} | 📐 {row['num_area']}㎡**\n🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**")
+                        st.success(f"### 🏆 {row['아파트명']}\n**📍 {row['법정동']} | 📐 {row['면적(㎡)']}㎡**\n🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**")
                     with st.expander("📊 전체 데이터 보기"):
                         st.dataframe(new_highs, use_container_width=True, hide_index=True)
 
@@ -791,23 +792,24 @@ def main():
         c2.metric("총 방문", f"{total} 명")
         
         st.markdown("---")
-        st.markdown("### 📢 부동산/대출 트렌드")
+        # 🚀 [수정됨] 2026년 4월 10일 기준 최신 뉴스로 완전 교체
+        st.markdown("### 📢 부동산/금융 최신 트렌드")
         st.markdown("""
         <div class="news-box bg-red">
-            <div class="news-date">🚨 [2026.04.01] 대출 규제 속보</div>
-            다주택자 수도권 및 규제지역 내 주택담보대출 <b>만기 연장 원칙적 금지</b> 발표 (4/17 시행).
+            <div class="news-date">🚨 [2026.04.10 속보] 한국은행 기준금리</div>
+            이창용 총재 마지막 금통위, 기준금리 <b>연 2.50%로 7차례 연속 동결</b> (물가 및 환율 변동성 우려 반영)
         </div>
         <div class="news-box bg-yellow">
-            <div class="news-date">⚠️ [2026.03.15] 스트레스 DSR 3단계</div>
-            수도권/규제지역 대출 심사 시 <b>가산금리 +3.0%p</b> 본격 적용. 체감 한도 대폭 축소.
+            <div class="news-date">⚠️ [2026.04.17 시행 임박] 대출 규제</div>
+            가계부채 관리방안에 따라 다주택자의 주담대 <b>만기 연장이 원칙적으로 금지</b>됩니다. (유동성 확보 비상)
         </div>
         <div class="news-box bg-blue">
-            <div class="news-date">📉 [2026.02] 은행권 금리 동향</div>
-            주요 시중은행 주담대 평균 금리 <b>4.2%대</b> 진입. (변동형 기준)
+            <div class="news-date">📈 [2026.04 1주차] 주간 아파트 동향</div>
+            전국 매매가(+0.04%), 전세가(+0.09%) 동반 상승. 서울·수도권 역세권 단지 중심으로 매수심리 유지 중.
         </div>
         <div class="news-box bg-gray">
-            <div class="news-date">📌 [2025 최신] 디딤돌대출 규제</div>
-            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만원 대출 한도 차감</b> 의무화.
+            <div class="news-date">📌 [2026 최신] 디딤돌대출 규제</div>
+            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 원 대출 한도 차감</b> 의무화.
         </div>
         """, unsafe_allow_html=True)
 
