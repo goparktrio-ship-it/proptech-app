@@ -115,38 +115,59 @@ def run_real_estate_app():
         
         if info['mode'] == '단순조회' and 'data' in st.session_state:
             df = st.session_state['data'].copy()
+            
+            # 🚀 [수정 1] 모바일 가독성을 위해 불필요한 'dealYear, dealMonth, dealDay' 항목 제거
             if info['cat'] == "매매":
-                target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
+                target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor'] 
                 exist_cols = [c for c in target_cols if c in df.columns]
-                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
+                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'dealAmount': '매매가(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층'})
                 price_col = '매매가(만원)' 
             else:
-                target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor', 'dealYear', 'dealMonth', 'dealDay']
+                target_cols = ['umdNm', 'aptNm', 'deposit', 'monthlyRent', 'excluUseAr', 'floor'] 
                 exist_cols = [c for c in target_cols if c in df.columns]
-                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealYear': '년', 'dealMonth': '월', 'dealDay': '일'})
+                df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층'})
                 price_col = '보증금(만원)' 
 
+            # 정렬 버그 해결: 문자열 데이터를 숫자로 변환
+            if '면적(㎡)' in df.columns:
+                df['면적(㎡)'] = pd.to_numeric(df['면적(㎡)'], errors='coerce')
+            if '층' in df.columns:
+                df['층'] = pd.to_numeric(df['층'], errors='coerce')
+            for col in ['매매가(만원)', '보증금(만원)', '월세(만원)']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+
             st.markdown("---")
-            st.subheader(f"🏘️ {info['gu']} 상세 동 필터링")
-            dong_list = sorted(df['법정동'].dropna().unique().tolist())
-            selected_dong = st.selectbox("**'동'을 선택하세요**", ["전체보기"] + dong_list, key="simple_dong")
-            if selected_dong != "전체보기":
-                df = df[df['법정동'] == selected_dong]
+            st.subheader(f"🏘️ {info['gu']} 상세 단지 필터링")
+            
+            f_col1, f_col2 = st.columns(2)
+            
+            # 🚀 [수정 2] 동을 선택하면, 해당 동의 아파트 목록만 나오도록 이중 필터링 적용
+            with f_col1:
+                dong_list = sorted(df['법정동'].dropna().unique().tolist())
+                selected_dong = st.selectbox("**1. '동' 선택**", ["전체보기"] + dong_list, key="simple_dong")
+                if selected_dong != "전체보기":
+                    df = df[df['법정동'] == selected_dong]
+
+            with f_col2:
+                apt_list = sorted(df['아파트명'].dropna().unique().tolist())
+                selected_apt = st.selectbox("**2. '아파트(단지)' 선택**", ["전체보기"] + apt_list, key="simple_apt")
+                if selected_apt != "전체보기":
+                    df = df[df['아파트명'] == selected_apt]
             
             if price_col in df.columns:
-                temp_df = df.copy()
-                temp_df['num_price'] = pd.to_numeric(temp_df[price_col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
-                valid_df = temp_df.dropna(subset=['num_price'])
+                valid_df = df.dropna(subset=[price_col])
                 col1, col2, col3 = st.columns(3)
-                col1.metric("총 거래건수", f"{len(df)} 건")
+                col1.metric("해당 단지 거래건수", f"{len(df)} 건")
                 if not valid_df.empty:
-                    max_row = valid_df.loc[valid_df['num_price'].idxmax()]
-                    min_row = valid_df.loc[valid_df['num_price'].idxmin()]
-                    col2.metric(f"최고가 🏆", f"{int(max_row['num_price']):,} 만원")
-                    col3.metric(f"최저가 📉", f"{int(min_row['num_price']):,} 만원")
+                    max_row = valid_df.loc[valid_df[price_col].idxmax()]
+                    min_row = valid_df.loc[valid_df[price_col].idxmin()]
+                    col2.metric(f"최고가 🏆", f"{int(max_row[price_col]):,} 만원")
+                    col3.metric(f"최저가 📉", f"{int(min_row[price_col]):,} 만원")
 
             st.markdown("<br>", unsafe_allow_html=True) 
-            st.dataframe(df, use_container_width=True)
+            # 🚀 [수정 3] 모바일에서 넓게 보이도록 hide_index=True 옵션 추가 (맨 왼쪽 번호표 숨김)
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
             df_t, df_r = st.session_state['data_trade'].copy(), st.session_state['data_rent'].copy()
@@ -179,7 +200,7 @@ def run_real_estate_app():
                             row = merged.iloc[i]
                             st.info(f"### {i+1}위: {row['아파트명']}\n**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n📊 **전세가율: {row['전세가율(%)']}%**\n💰 **예상 실투자금: {row['실투자금(만원)']:,}만 원**")
                         with st.expander("📊 전체 데이터 보기"):
-                            st.dataframe(merged, use_container_width=True)
+                            st.dataframe(merged, use_container_width=True, hide_index=True)
 
         elif info['mode'] == '최고가' and 'data_high' in st.session_state:
             df = st.session_state['data_high'].copy()
@@ -207,7 +228,7 @@ def run_real_estate_app():
                         row = new_highs.iloc[i]
                         st.success(f"### 🏆 {row['aptNm']}\n**📍 {row['umdNm']} | 📐 {row['num_area']}㎡**\n🚀 **최고가: {int(row['당월최고가(만원)']):,}만 원**")
                     with st.expander("📊 전체 데이터 보기"):
-                        st.dataframe(new_highs, use_container_width=True)
+                        st.dataframe(new_highs, use_container_width=True, hide_index=True)
 
 # ==========================================
 # 2. 화면 구성 (앱 2: 취득세/보유세)
