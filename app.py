@@ -208,7 +208,6 @@ def run_real_estate_app():
             
             new_highs = merged[merged['당월최고가(만원)'] >= merged['1년최고가(만원)']].sort_values('당월최고가(만원)', ascending=False).reset_index(drop=True)
             
-            # 🚀 [추가됨] 전체보기 표 영문 컬럼을 한국어로 깔끔하게 이름 변경!
             new_highs = new_highs.rename(columns={
                 'umdNm': '법정동', 
                 'aptNm': '아파트명', 
@@ -688,7 +687,7 @@ def run_loan_simulator_app():
                         })
 
                 if not recommended_loans:
-                    st.error(f"🚨 현재 입력하신 금액 (보증금 {jeonse_deposit:,}만 원, 필요 대출 {required_jeonse_loan:,}만 원) 전체를 방어할 수 있는 보증 상품 한도가 부족합니다. 현금을 더 확보해야 합니다.")
+                    st.error(f"🚨 현재 입력하신 금액 (보증금 {jeonse_deposit:,}만 원, 필요 대출 {required_jeonse_loan:,}만 원) 전체를 방어할 수 있는 보증 상품 한도가 부족합니다. 현금을 더 확보해야 큰일납니다.")
                 else:
                     for loan in recommended_loans:
                         st.success(f"### {loan['rank']} | {loan['name']}\n"
@@ -781,18 +780,15 @@ def main():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
+        # 1. 로고 영역
         if os.path.exists(logo_path):
             st.image(logo_path, use_container_width=True)
         else:
-            st.title("🏢 집스탯 (ZipStat)")
-        
-        total, daily = update_and_get_visitor_count()
-        c1, c2 = st.columns(2)
-        c1.metric("오늘 방문", f"{daily} 명")
-        c2.metric("총 방문", f"{total} 명")
+            st.markdown("<h2 style='text-align: center; color: #333;'>🏢 집스탯 (ZipStat)</h2>", unsafe_allow_html=True)
         
         st.markdown("---")
-        # 🚀 [수정됨] 2026년 4월 10일 기준 최신 뉴스로 완전 교체
+        
+        # 2. 부동산 뉴스 영역 (위로 올림)
         st.markdown("### 📢 부동산/금융 최신 트렌드")
         st.markdown("""
         <div class="news-box bg-red">
@@ -810,6 +806,25 @@ def main():
         <div class="news-box bg-gray">
             <div class="news-date">📌 [2026 최신] 디딤돌대출 규제</div>
             수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 원 대출 한도 차감</b> 의무화.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # 3. 방문자 수 표시 (아래로 내리고 텍스트 크기 축소)
+        total, daily = update_and_get_visitor_count()
+        st.markdown(f"""
+        <div style="text-align: center; color: #888888; font-size: 13px; margin-top: 10px;">
+            👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {total} 명
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 4. 저작권 및 개발자 정보 (사이드바 최하단)
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align: center; color: #aaaaaa; font-size: 11px;">
+            © 2026 ZipStat PRO.<br>All rights reserved.<br><br>
+            👨‍💻 Developed by <b>[사용자님의 닉네임/이름]</b>
         </div>
         """, unsafe_allow_html=True)
 
