@@ -197,7 +197,6 @@ def run_real_estate_app():
                     if not merged.empty:
                         top_10_df = merged.head(10)
                         
-                        # 🚀 [모바일 최적화] 전세가율 막대 차트
                         fig2 = px.bar(
                             top_10_df, x='아파트명', y='전세가율(%)',
                             title=f"🔥 갭투자 추천! 전세가율 TOP 10",
@@ -207,14 +206,15 @@ def run_real_estate_app():
                             template="plotly_white"
                         )
                         fig2.update_traces(texttemplate='%{text}%', textposition='outside')
+                        # 🚀 [업데이트] 막대 차트 고정 (줌, 패닝 비활성화)
                         fig2.update_layout(
-                            height=350, # 차트 높이 축소
-                            margin=dict(l=10, r=10, t=40, b=10), # 상하좌우 여백 최소화
-                            xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10)), # X축 이름 숨김, 글꼴 축소
-                            yaxis=dict(title=""), # Y축 이름 숨김 (공간 확보)
-                            yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100]
+                            height=350, 
+                            margin=dict(l=0, r=0, t=40, b=0), # 여백 최소화
+                            xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), # X축 고정
+                            yaxis=dict(title="", showticklabels=False, fixedrange=True), # Y축 고정 및 숫자 숨김
+                            yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
+                            dragmode=False # 드래그 금지
                         ) 
-                        # config 속성을 통해 차트 우측 상단의 거추장스러운 메뉴바(Toolbar)를 숨김처리합니다.
                         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
                         for i in range(min(5, len(merged))):
@@ -249,22 +249,21 @@ def run_real_estate_app():
             if not df_filtered.empty:
                 trend_df = df_filtered.groupby('조회년월')['num_price'].mean().reset_index()
                 
-                # 🚀 [모바일 최적화] 1년 가격 추이 꺾은선 차트
                 fig = px.line(
                     trend_df, x='조회년월', y='num_price', markers=True,
-                    # <br> 태그를 이용해 긴 제목을 두 줄로 나누어 모바일에서 잘리지 않게 함
                     title=f"📅 {sel_apt}<br><span style='font-size:14px;'>({sel_area}㎡) 최근 1년 시세 흐름</span>",
                     template="plotly_white"
                 )
                 fig.update_traces(line_color="#1E3A8A", line_width=3, marker_size=8)
+                # 🚀 [업데이트] 꺾은선 차트 고정 (줌, 패닝 비활성화)
                 fig.update_layout(
-                    height=300, # 차트 높이를 모바일 한 화면에 들어오도록 대폭 축소 (기본값 약 450px -> 300px)
-                    margin=dict(l=10, r=10, t=50, b=10), # 차트 바깥쪽의 불필요한 흰색 여백 제거
-                    xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10)), # X축 라벨 크기 축소 및 기울임
-                    yaxis=dict(title="", tickfont=dict(size=10)), # Y축 '평균거래가(만원)' 글씨를 숨겨 차트 영역 확보
-                    title_font_size=16
+                    height=300, 
+                    margin=dict(l=0, r=0, t=50, b=0), # 여백 최소화
+                    xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), # X축 고정
+                    yaxis=dict(title="", tickfont=dict(size=10), fixedrange=True), # Y축 고정
+                    title_font_size=16,
+                    dragmode=False # 드래그 금지
                 )
-                # config={'displayModeBar': False} 로 화면을 가리는 확대/축소 툴바를 숨김
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
                 
                 max_val = int(df_filtered['num_price'].max())
@@ -852,7 +851,7 @@ def main():
         </div>
         <div class="news-box bg-gray">
             <div class="news-date">📌 [2026 최신] 디딤돌대출 규제</div>
-            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 원 대출 한도 차감</b> 의무화.
+            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 대출 한도 차감</b> 의무화.
         </div>
         """, unsafe_allow_html=True)
         
