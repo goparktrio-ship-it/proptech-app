@@ -49,7 +49,7 @@ if os.path.exists(title_icon_path):
     title_icon_html = f'<img src="data:image/png;base64,{encoded_string}" style="height: 45px; width: auto; vertical-align: middle; margin-right: 8px; margin-bottom: 8px;">'
 
 # ==========================================
-# 1. 화면 구성 (앱 0: 홈 화면 - 로티 애니메이션 원상복구)
+# 1. 화면 구성 (앱 0: 홈 화면 - 모바일 순서 개선)
 # ==========================================
 @st.fragment
 def run_home_app():
@@ -86,8 +86,9 @@ def run_home_app():
     st.markdown("---")
     st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>🚀 핵심 기능 가이드</h3>", unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
+    # 모바일에서 1->2->3->4 순서로 나오도록 Row 단위로 컬럼 분리
+    r1_col1, r1_col2 = st.columns(2)
+    with r1_col1:
         st.markdown("""
         <div class="feature-card">
             <div class="feature-icon">🔍</div>
@@ -95,15 +96,7 @@ def run_home_app():
             <div class="feature-desc">과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 소액 투자를 위한 전세가율(실투자금) 상위 아파트를 클릭 한 번으로 뽑아냅니다.</div>
         </div>
         """, unsafe_allow_html=True)
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">📈</div>
-            <div class="feature-title">3. 양도소득세 정밀 계산</div>
-            <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부를 정확히 계산합니다.</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
+    with r1_col2:
         st.markdown("""
         <div class="feature-card">
             <div class="feature-icon">💰</div>
@@ -111,6 +104,17 @@ def run_home_app():
             <div class="feature-desc">2026년 최신 세법 적용! 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출합니다.</div>
         </div>
         """, unsafe_allow_html=True)
+
+    r2_col1, r2_col2 = st.columns(2)
+    with r2_col1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">📈</div>
+            <div class="feature-title">3. 양도소득세 정밀 계산</div>
+            <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부를 정확히 계산합니다.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with r2_col2:
         st.markdown("""
         <div class="feature-card">
             <div class="feature-icon">🏦</div>
