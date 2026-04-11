@@ -1,6 +1,8 @@
 import os
+import base64
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components  
 from PIL import Image
 import concurrent.futures
 import plotly.express as px  
@@ -13,6 +15,7 @@ from engine import *
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 logo_path = os.path.join(current_dir, "logo.png")
+title_icon_path = os.path.join(current_dir, "uni6_loan.png") # 제목에 들어갈 골드 아이콘
 
 try:
     img_icon = Image.open(logo_path)
@@ -37,8 +40,89 @@ if '양천구' not in GU_CODES:
     GU_CODES['양천구'] = '11470'
 SORTED_GU_LIST = sorted(list(GU_CODES.keys()))
 
+# 🚀 타이틀 아이콘(uni6_loan.png)을 HTML에 삽입하기 위한 Base64 변환
+title_icon_html = "🏢"
+if os.path.exists(title_icon_path):
+    with open(title_icon_path, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
+    # 글자(h1) 크기에 맞춰 높이를 45px로 고정하고, 수직 정렬을 맞춤
+    title_icon_html = f'<img src="data:image/png;base64,{encoded_string}" style="height: 45px; width: auto; vertical-align: middle; margin-right: 8px; margin-bottom: 8px;">'
+
 # ==========================================
-# 1. 화면 구성 (앱 1: 실거래가)
+# 1. 화면 구성 (앱 0: 홈 화면 - 로티 애니메이션 원상복구)
+# ==========================================
+@st.fragment
+def run_home_app():
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 🚀 원래의 세련된 Lottie 애니메이션 복구
+    components.html(
+        """
+        <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <lottie-player 
+                src="https://assets9.lottiefiles.com/packages/lf20_w6dptksf.json" 
+                background="transparent" 
+                speed="1" 
+                style="width: 250px; height: 250px;" 
+                loop 
+                autoplay>
+            </lottie-player>
+        </div>
+        """,
+        height=260,
+    )
+
+    st.markdown("""
+    <div style="text-align: center; padding: 0 0 40px 0;">
+        <h2 style="color: #1E3A8A; font-weight: 800; margin-top: 0px; font-size: 28px;">집스탯 PRO에 오신 것을 환영합니다!</h2>
+        <p style="color: #4B5563; font-size: 16px; margin-top: 10px; line-height: 1.6;">
+            복잡한 부동산 실거래가 분석부터 최신 규제가 반영된 세금, 대출 계산까지.<br>
+            상단의 탭을 클릭하여 원클릭 스마트 부동산 솔루션을 지금 바로 경험해 보세요.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>🚀 핵심 기능 가이드</h3>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <div class="feature-title">1. 실거래가 및 전세가율 분석</div>
+            <div class="feature-desc">과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 소액 투자를 위한 전세가율(실투자금) 상위 아파트를 클릭 한 번으로 뽑아냅니다.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">📈</div>
+            <div class="feature-title">3. 양도소득세 정밀 계산</div>
+            <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부를 정확히 계산합니다.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">💰</div>
+            <div class="feature-title">2. 취득세 및 연간 보유세 계산</div>
+            <div class="feature-desc">2026년 최신 세법 적용! 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출합니다.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🏦</div>
+            <div class="feature-title">4. 맞춤형 자금조달 및 대출 컨설팅</div>
+            <div class="feature-desc">신생아/디딤돌 정책자금 대상 여부 확인은 물론, 최신 4월 대출 규제를 반영한 스트레스 DSR 최대한도를 알아봅니다.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+# ==========================================
+# 2. 화면 구성 (앱 1: 실거래가)
 # ==========================================
 @st.fragment 
 def run_real_estate_app():
@@ -62,12 +146,12 @@ def run_real_estate_app():
                 df, error_msg = fetch_real_estate_data(api_cat, lawd_cd, deal_ym, SERVICE_KEY)
                 
                 if error_msg:
-                    st.error(error_msg)
+                    st.toast(f"🚨 {error_msg}", icon="🚨") 
                     st.session_state['info'] = None 
                 elif not df.empty:
                     st.session_state['data'] = df
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'cat': api_cat, 'mode': '단순조회'}
-                    st.success("✅ 데이터 조회를 완료했습니다!")
+                    st.toast("✅ 데이터 조회를 완료했습니다!", icon="✨") 
 
         elif category == "전세가율(실투자금) 분석":
             with st.spinner(f'{selected_gu} 데이터 융합 분석 중...'):
@@ -75,13 +159,13 @@ def run_real_estate_app():
                 df_rent, err_rent = fetch_real_estate_data("전월세", lawd_cd, deal_ym, SERVICE_KEY)
                 
                 if err_trade or err_rent:
-                    st.error("데이터를 불러오지 못했습니다.")
+                    st.toast("🚨 데이터를 불러오지 못했습니다.", icon="🚨") 
                     st.session_state['info'] = None
                 else:
                     st.session_state['data_trade'] = df_trade
                     st.session_state['data_rent'] = df_rent
                     st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '전세가율'}
-                    st.success("✅ 전세가율 계산 완료!")
+                    st.toast("✅ 전세가율 계산 완료!", icon="📊") 
                     
         elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
@@ -108,9 +192,9 @@ def run_real_estate_app():
                 df_all = pd.concat(all_data, ignore_index=True)
                 st.session_state['data_high'] = df_all
                 st.session_state['info'] = {'gu': selected_gu, 'ym': deal_ym, 'mode': '최고가'}
-                st.success("✅ 1년 치 최고가 병렬 판독 완료!")
+                st.toast("✅ 1년 치 최고가 병렬 판독 완료!", icon="🚀") 
             else:
-                st.error("데이터를 불러오지 못했습니다.")
+                st.toast("🚨 데이터를 불러오지 못했습니다.", icon="🚨") 
                 st.session_state['info'] = None
 
     if 'info' in st.session_state and st.session_state['info'] is not None:
@@ -199,21 +283,20 @@ def run_real_estate_app():
                         
                         fig2 = px.bar(
                             top_10_df, x='아파트명', y='전세가율(%)',
-                            title=f"🔥 갭투자 추천! 전세가율 TOP 10",
+                            title=f"🔥 전세가율(실투자금) TOP 10 단지", 
                             text='전세가율(%)', 
                             color='전세가율(%)', 
                             color_continuous_scale="Reds", 
                             template="plotly_white"
                         )
                         fig2.update_traces(texttemplate='%{text}%', textposition='outside')
-                        # 🚀 [업데이트] 막대 차트 고정 (줌, 패닝 비활성화)
                         fig2.update_layout(
                             height=350, 
-                            margin=dict(l=0, r=0, t=40, b=0), # 여백 최소화
-                            xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), # X축 고정
-                            yaxis=dict(title="", showticklabels=False, fixedrange=True), # Y축 고정 및 숫자 숨김
+                            margin=dict(l=0, r=0, t=40, b=0), 
+                            xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), 
+                            yaxis=dict(title="", showticklabels=False, fixedrange=True), 
                             yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
-                            dragmode=False # 드래그 금지
+                            dragmode=False 
                         ) 
                         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
@@ -255,14 +338,13 @@ def run_real_estate_app():
                     template="plotly_white"
                 )
                 fig.update_traces(line_color="#1E3A8A", line_width=3, marker_size=8)
-                # 🚀 [업데이트] 꺾은선 차트 고정 (줌, 패닝 비활성화)
                 fig.update_layout(
                     height=300, 
-                    margin=dict(l=0, r=0, t=50, b=0), # 여백 최소화
-                    xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), # X축 고정
-                    yaxis=dict(title="", tickfont=dict(size=10), fixedrange=True), # Y축 고정
+                    margin=dict(l=0, r=0, t=50, b=0), 
+                    xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), 
+                    yaxis=dict(title="", tickfont=dict(size=10), fixedrange=True), 
                     title_font_size=16,
-                    dragmode=False # 드래그 금지
+                    dragmode=False 
                 )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
                 
@@ -279,7 +361,7 @@ def run_real_estate_app():
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # ==========================================
-# 2. 화면 구성 (앱 2: 취득세/보유세)
+# 3. 화면 구성 (앱 2: 취득세/보유세)
 # ==========================================
 @st.fragment 
 def run_tax_app():
@@ -331,15 +413,17 @@ def run_tax_app():
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("세금 정밀 계산하기 🚀", use_container_width=True, key="btn_tax", type="primary"):
+        st.toast("✅ 세금 정밀 계산 완료!", icon="💰") 
+        
         acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
         off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
         
         st.markdown("---")
         st.markdown("#### 📊 1. 예상 취득세 결과")
         if final_rate > base_rate:
-            st.error(f"🚨 **적용 본세율:** {final_rate * 100:.1f}% **(다주택 중과세율 적용)**")
+            st.error(f"🚨 **적용 본세율:** {final_rate * 100:.1f}% **(다주택 중과세율 적용)**") 
         else:
-            st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**")
+            st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**") 
             
         c1, c2, c3 = st.columns(3)
         with c1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 취득세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(acq_tax):,} 원</span>", unsafe_allow_html=True)
@@ -379,7 +463,7 @@ def run_tax_app():
         </div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 3. 화면 구성 (앱 3: 양도소득세)
+# 4. 화면 구성 (앱 3: 양도소득세)
 # ==========================================
 @st.fragment 
 def run_capital_gains_tax_app():
@@ -466,6 +550,8 @@ def run_capital_gains_tax_app():
 
     st.markdown("---")
     if st.button("양도세 정밀 계산하기 🚀", use_container_width=True, key="btn_cgt", type="primary"):
+        st.toast("✅ 양도소득세 산출 완료!", icon="📈") 
+        
         gain, tax_gain, deduct_amt, tax_base, rate, total_tax, status_msg, deduct_rate = calculate_capital_gains_tax(
             sell_price, buy_price, expenses, holding_period, residence_period, homes_count_sell, is_reg_buy, is_reg_sell, is_suspension, is_joint_sell
         )
@@ -512,7 +598,7 @@ def run_capital_gains_tax_app():
         </div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 4. 화면 구성 (앱 4: 자금조달 및 대출 V2.1)
+# 5. 화면 구성 (앱 4: 자금조달 및 대출 V2.1)
 # ==========================================
 @st.fragment 
 def run_loan_simulator_app():
@@ -584,6 +670,8 @@ def run_loan_simulator_app():
 
         st.markdown("---")
         if st.button("PRO 정밀 분석 결과 보기 🚀", use_container_width=True, type="primary"):
+            st.toast("✅ 대출 및 자금조달 분석 완료!", icon="🏦") 
+
             if required_loan == 0:
                 st.success("보유 현금이 충분하여 대출이 필요하지 않습니다! 🎉")
             elif current_homes == "2주택 이상" and is_regulated_loan:
@@ -615,14 +703,14 @@ def run_loan_simulator_app():
                 
                 c1, c2 = st.columns(2)
                 if required_loan > max_loan_by_ltv:
-                    c1.error(f"🚨 **LTV 한도 초과!**\n\n최대 가능 대출액: **{int(max_loan_by_ltv):,}만 원**")
+                    c1.error(f"🚨 **LTV 한도 초과!**\n\n최대 가능 대출액: **{int(max_loan_by_ltv):,}만 원**") 
                 else:
-                    c1.success(f"✅ **LTV 통과**\n\n최대 한도 {int(max_loan_by_ltv):,}만 원 이내로 안전권입니다.")
+                    c1.success(f"✅ **LTV 통과**\n\n최대 한도 {int(max_loan_by_ltv):,}만 원 이내로 안전권입니다.") 
                     
                 if actual_dsr > dsr_limit:
-                    c2.error(f"🚨 **스트레스 DSR 40% 한도 초과!**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)")
+                    c2.error(f"🚨 **스트레스 DSR 40% 한도 초과!**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)") 
                 else:
-                    c2.success(f"✅ **스트레스 DSR 통과 (안정권)**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)")
+                    c2.success(f"✅ **스트레스 DSR 통과 (안정권)**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)") 
 
                 st.markdown("---")
                 st.markdown("#### 💸 2. 자금조달 및 실제 월 상환액 브리팅")
@@ -676,6 +764,8 @@ def run_loan_simulator_app():
 
         st.markdown("---")
         if st.button("맞춤형 전세대출 컨설팅 시작 🚀", use_container_width=True, type="primary"):
+            st.toast("✅ 맞춤형 전세대출 컨설팅 완료!", icon="🔑") 
+
             if required_jeonse_loan == 0:
                 st.success("보유 현금이 충분하여 전세 대출이 필요하지 않습니다! 🎉")
             elif jeonse_homes == "2주택 이상" or (jeonse_homes == "1주택" and is_1home_banned):
@@ -801,29 +891,95 @@ def run_loan_simulator_app():
         </div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 5. 메인 네비게이션 및 사이드바 (main 함수)
+# 6. 메인 네비게이션 및 사이드바 (main 함수)
 # ==========================================
 def main():
     st.markdown("""
     <style>
-        .block-container { padding-top: 3rem !important; }
+        /* 1. 웹 폰트(Pretendard) 적용 */
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        html, body, [class*="css"] {
+            font-family: 'Pretendard', sans-serif !important;
+        }
+
+        /* 2. 전체 여백 최소화 및 깔끔한 배경 */
+        .block-container { 
+            padding-top: 2rem !important; 
+            padding-bottom: 2rem !important;
+            max-width: 1000px; 
+        }
+
+        /* 3. 버튼 디자인 고급화 */
         div.stButton > button[kind="primary"] {
-            background-color: #FF4B4B !important; color: white !important; font-weight: bold !important;
-            font-size: 18px !important; border-radius: 10px !important; padding: 0.5rem 1rem !important;
+            background-color: #1E3A8A !important; 
+            color: white !important; 
+            font-weight: 600 !important;
+            border-radius: 8px !important; 
+            transition: all 0.2s ease-in-out;
         }
-        div[data-baseweb="tab-list"] { gap: 5px; }
+        div.stButton > button[kind="primary"]:hover {
+            transform: translateY(-2px);
+        }
+
+        /* 4. 탭(Tab) 디자인 강조 (더 선명하고 눈에 띄게) */
+        div[data-baseweb="tab-list"] { 
+            gap: 10px; 
+            border-bottom: 2px solid #D1D5DB;
+        }
         button[data-baseweb="tab"] {
-            font-size: 16px !important; font-weight: bold !important; background-color: #f0f2f6 !important; 
-            border-radius: 12px 12px 0px 0px !important; padding: 10px 15px !important; color: #555555 !important;
+            font-size: 18px !important; /* 기존 15px -> 18px 확대 */
+            font-weight: 800 !important; /* 기존 600 -> 800 가장 뚜렷하게 */
+            background-color: transparent !important; 
+            border: none !important;
+            padding: 14px 20px !important; 
+            color: #6B7280 !important;
         }
-        button[aria-selected="true"] { background-color: #FF4B4B !important; color: white !important; }
+        button[data-baseweb="tab"]:hover {
+            color: #111827 !important; /* 마우스 오버 시 글자를 더 까맣게 */
+        }
+        button[aria-selected="true"] { 
+            color: #1E3A8A !important; /* 선택된 탭 글자를 딥 네이비로 */
+            background-color: #EFF6FF !important; /* 선택된 탭에 아주 연한 파란색 배경 추가 */
+            border-radius: 8px 8px 0 0 !important; /* 위쪽 모서리만 둥글게 */
+            border-bottom: 4px solid #1E3A8A !important; /* 하단 밑줄을 더 굵고 진하게 */
+        }
+        button[aria-selected="true"] p {
+            color: #1E3A8A !important;
+        }
+
+        /* 5. 사이드바 뉴스 박스 디자인 */
+        .news-box { 
+            padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; line-height: 1.4; 
+            border: 1px solid #E5E7EB; 
+        }
+        .news-date { font-weight: 600 !important; font-size: 12px; margin-bottom: 4px; }
+        .bg-red { background-color: #fef2f2; border-left: 4px solid #ef4444; color: #991b1b !important; }
+        .bg-yellow { background-color: #fefce8; border-left: 4px solid #eab308; color: #854d0e !important; }
+        .bg-blue { background-color: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af !important; }
+        .bg-gray { background-color: #f9fafb; border-left: 4px solid #6b7280; color: #374151 !important; }
+
+        /* 6. 홈 화면 기능 카드 스타일 */
+        .feature-card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            text-align: center;
+            margin-bottom: 20px;
+            height: 220px;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border-color: #1E3A8A;
+        }
+        .feature-icon { font-size: 40px; margin-bottom: 15px; }
+        .feature-title { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 10px; }
+        .feature-desc { font-size: 13px; color: #6B7280; line-height: 1.5; }
         
-        .news-box { padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; line-height: 1.4; }
-        .news-date { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
-        .bg-red { background-color: #fee2e2; border-left: 5px solid #ef4444; color: #991b1b; }
-        .bg-yellow { background-color: #fef9c3; border-left: 5px solid #eab308; color: #854d0e; }
-        .bg-blue { background-color: #e0f2fe; border-left: 5px solid #0ea5e9; color: #075985; }
-        .bg-gray { background-color: #f3f4f6; border-left: 5px solid #6b7280; color: #374151; }
+        h1, h2, h3, h4 { font-weight: 700 !important; letter-spacing: -0.5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -834,7 +990,6 @@ def main():
             st.markdown("<h2 style='text-align: center; color: #333;'>🏢 집스탯 (ZipStat)</h2>", unsafe_allow_html=True)
         
         st.markdown("---")
-        
         st.markdown("### 📢 부동산/금융 최신 트렌드")
         st.markdown("""
         <div class="news-box bg-red">
@@ -851,32 +1006,30 @@ def main():
         </div>
         <div class="news-box bg-gray">
             <div class="news-date">📌 [2026 최신] 디딤돌대출 규제</div>
-            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 대출 한도 차감</b> 의무화.
+            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 원 대출 한도 차감</b> 의무화.
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         total, daily = update_and_get_visitor_count()
-        st.markdown(f"""
-        <div style="text-align: center; color: #888888; font-size: 13px; margin-top: 10px;">
-            👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {total} 명
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align: center; color: #888; font-size: 13px;'>👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {total} 명</div>", unsafe_allow_html=True)
         
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("""
         <div style="text-align: center; color: #aaaaaa; font-size: 11px;">
             © 2026 ZipStat PRO.<br>All rights reserved.<br><br>
-            👨‍💻 Developed by <b>[Sweet_OurZIP]</b>
+            👨‍💻 Developed by <b>[사용자님의 닉네임/이름]</b>
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏢 집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
+    # 🚀 메인 타이틀 텍스트 앞에 uni6_loan.png 아이콘을 HTML 렌더링으로 배치
+    st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["🏠 실거래가 분석", "💰 세금 계산", "📈 양도세 계산", "🏦 자금조달/대출"])
+    tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 홈", "🔍 실거래가 분석", "💰 세금 계산", "📈 양도세 계산", "🏦 자금조달/대출"])
     
+    with tab0: run_home_app()
     with tab1: run_real_estate_app() 
     with tab2: run_tax_app()
     with tab3: run_capital_gains_tax_app()
