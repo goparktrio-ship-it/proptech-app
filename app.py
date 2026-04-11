@@ -1023,7 +1023,7 @@ def main():
         st.markdown("""
         <div style="text-align: center; color: #aaaaaa; font-size: 11px;">
             © 2026 ZipStat PRO.<br>All rights reserved.<br><br>
-            👨‍💻 Developed by <b>[사용자님의 닉네임/이름]</b>
+            👨‍💻 Developed by <b>[sweet_ourzip]</b>
         </div>
         """, unsafe_allow_html=True)
 
