@@ -1,11 +1,12 @@
 import os
+import json
 import base64
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components  
 from PIL import Image
 import concurrent.futures
 import plotly.express as px  
+import streamlit.components.v1 as components 
 
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
 from engine import *
@@ -15,7 +16,7 @@ from engine import *
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
 logo_path = os.path.join(current_dir, "logo.png")
-title_icon_path = os.path.join(current_dir, "uni6_loan.png") # 제목에 들어갈 골드 아이콘
+title_icon_path = os.path.join(current_dir, "uni6_loan.png") 
 
 try:
     img_icon = Image.open(logo_path)
@@ -29,6 +30,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+try:
+    from streamlit_local_storage import LocalStorage
+    localS = LocalStorage()
+    HAS_LS = True
+except ImportError:
+    HAS_LS = False
+    if 'fav_apts' not in st.session_state:
+        st.session_state['fav_apts'] = []
+
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
 else:
@@ -36,16 +46,14 @@ else:
 
 DETAIL_STYLE = "<div style='font-size: 14px; line-height: 1.6; color: #444;'>"
 
-if '양천구' not in GU_CODES:
-    GU_CODES['양천구'] = '11470'
+if '양천구' not in GU_CODES: GU_CODES['양천구'] = '11470'
+if '기흥구' not in GU_CODES: GU_CODES['기흥구'] = '41463'
 SORTED_GU_LIST = sorted(list(GU_CODES.keys()))
 
-# 🚀 타이틀 아이콘(uni6_loan.png)을 HTML에 삽입하기 위한 Base64 변환
 title_icon_html = "🏢"
 if os.path.exists(title_icon_path):
     with open(title_icon_path, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
-    # 글자(h1) 크기에 맞춰 높이를 45px로 고정하고, 수직 정렬을 맞춤
     title_icon_html = f'<img src="data:image/png;base64,{encoded_string}" style="height: 45px; width: auto; vertical-align: middle; margin-right: 8px; margin-bottom: 8px;">'
 
 # ==========================================
@@ -55,23 +63,31 @@ if os.path.exists(title_icon_path):
 def run_home_app():
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🚀 원래의 세련된 Lottie 애니메이션 복구
-    components.html(
-        """
+    # 🚀 애니메이션 로직 유지 (st.components.v1.html 사용 및 투명 처리)
+    lottie_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
         <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-        <div style="display: flex; justify-content: center; align-items: center;">
-            <lottie-player 
-                src="https://assets9.lottiefiles.com/packages/lf20_w6dptksf.json" 
-                background="transparent" 
-                speed="1" 
-                style="width: 250px; height: 250px;" 
-                loop 
-                autoplay>
-            </lottie-player>
-        </div>
-        """,
-        height=260,
-    )
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                background-color: transparent !important;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                overflow: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_w6dptksf.json" background="transparent" speed="1" style="width: 250px; height: 250px;" loop autoplay></lottie-player>
+    </body>
+    </html>
+    """
+    components.html(lottie_html, height=260)
 
     st.markdown("""
     <div style="text-align: center; padding: 0 0 40px 0;">
@@ -86,7 +102,6 @@ def run_home_app():
     st.markdown("---")
     st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>🚀 핵심 기능 가이드</h3>", unsafe_allow_html=True)
 
-    # 모바일에서 1->2->3->4 순서로 나오도록 Row 단위로 컬럼 분리
     r1_col1, r1_col2 = st.columns(2)
     with r1_col1:
         st.markdown("""
@@ -131,8 +146,17 @@ def run_home_app():
 @st.fragment 
 def run_real_estate_app():
     st.subheader("🏠 실거래가/전세가율")
-    st.markdown("#### 🔍 검색 조건 설정")
     
+    if HAS_LS:
+        fav_list = localS.getItem("fav_apts")
+        if fav_list is None or fav_list == "": fav_list = []
+        elif isinstance(fav_list, str):
+            try: fav_list = json.loads(fav_list)
+            except: fav_list = []
+    else:
+        fav_list = st.session_state['fav_apts']
+        
+    st.markdown("#### 🔍 검색 조건 설정")
     col1, col2 = st.columns(2)
     with col1:
         selected_gu = st.selectbox("**지역구 선택**", SORTED_GU_LIST)
@@ -141,7 +165,7 @@ def run_real_estate_app():
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
         
     category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 최고가 분석"], horizontal=True)
-    submit_btn = st.button("데이터 분석 시작 🚀", use_container_width=True, type="primary")
+    submit_btn = st.button("데이터 분석 시작 🚀", width="stretch", type="primary")
 
     if submit_btn:
         if category in ["매매 실거래", "전월세 실거래"]:
@@ -181,7 +205,7 @@ def run_real_estate_app():
                 if not df.empty:
                     df['조회년월'] = ym
                 return df
-
+            
             with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
                 futures = {executor.submit(fetch_month_data, ym): ym for ym in months_to_fetch}
                 completed_count = 0
@@ -232,16 +256,37 @@ def run_real_estate_app():
             f_col1, f_col2 = st.columns(2)
             with f_col1:
                 dong_list = sorted(df['법정동'].dropna().unique().tolist())
-                selected_dong = st.selectbox("**1. '동' 선택**", ["전체보기"] + dong_list, key="simple_dong")
+                selected_dong = st.selectbox("**1. '동' 선택**", ["전체보기"] + dong_list)
                 if selected_dong != "전체보기":
                     df = df[df['법정동'] == selected_dong]
 
             with f_col2:
                 apt_list = sorted(df['아파트명'].dropna().unique().tolist())
-                selected_apt = st.selectbox("**2. '아파트(단지)' 선택**", ["전체보기"] + apt_list, key="simple_apt")
+                selected_apt = st.selectbox("**2. '아파트(단지)' 선택**", ["전체보기"] + apt_list)
                 if selected_apt != "전체보기":
                     df = df[df['아파트명'] == selected_apt]
             
+            if selected_apt != "전체보기" and selected_dong != "전체보기":
+                is_fav = any(f['apt'] == selected_apt and f['dong'] == selected_dong for f in fav_list)
+                _, btn_col = st.columns([4, 1])
+                with btn_col:
+                    if is_fav:
+                        if st.button("❌ 관심 해제", width="stretch"):
+                            new_list = [f for f in fav_list if not (f['apt'] == selected_apt and f['dong'] == selected_dong)]
+                            if HAS_LS: localS.setItem("fav_apts", json.dumps(new_list))
+                            else: st.session_state['fav_apts'] = new_list
+                            st.rerun()
+                    else:
+                        if st.button("⭐ 관심 등록", width="stretch"):
+                            if len(fav_list) >= 10:
+                                st.error("🚨 단지는 최대 10개까지만 등록 가능합니다!")
+                            else:
+                                new_list = fav_list + [{'gu': info['gu'], 'dong': selected_dong, 'apt': selected_apt}]
+                                if HAS_LS: localS.setItem("fav_apts", json.dumps(new_list))
+                                else: st.session_state['fav_apts'] = new_list
+                                st.toast(f"{selected_apt} 관심 등록 완료!", icon="⭐")
+                                st.rerun()
+
             if price_col in df.columns:
                 valid_df = df.dropna(subset=[price_col])
                 col1, col2, col3 = st.columns(3)
@@ -254,7 +299,7 @@ def run_real_estate_app():
 
             st.markdown("<br>", unsafe_allow_html=True) 
             display_df = df.drop(columns=['일']) if '일' in df.columns else df
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width="stretch", hide_index=True)
 
         elif info['mode'] == '전세가율' and 'data_trade' in st.session_state:
             df_t, df_r = st.session_state['data_trade'].copy(), st.session_state['data_rent'].copy()
@@ -278,7 +323,7 @@ def run_real_estate_app():
                     st.markdown("---")
                     st.markdown(f"#### 📊 {info['gu']} 전세가율 상위 단지")
                     dong_list_gap = sorted(merged['법정동'].dropna().unique().tolist())
-                    sel_dong_gap = st.selectbox("**'동' 선택**", ["구 전체보기"] + dong_list_gap, key="gap_dong")
+                    sel_dong_gap = st.selectbox("**'동' 선택**", ["구 전체보기"] + dong_list_gap)
                     if sel_dong_gap != "구 전체보기":
                         merged = merged[merged['법정동'] == sel_dong_gap].reset_index(drop=True)
 
@@ -302,13 +347,13 @@ def run_real_estate_app():
                             yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
                             dragmode=False 
                         ) 
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                        st.plotly_chart(fig2, width="stretch", config={'displayModeBar': False})
 
                         for i in range(min(5, len(merged))):
                             row = merged.iloc[i]
                             st.info(f"### {i+1}위: {row['아파트명']}\n**📍 {row['법정동']} | 📐 {row['전용면적(㎡)']}㎡**\n\n📊 **전세가율: {row['전세가율(%)']}%**\n💰 **예상 실투자금: {row['실투자금(만원)']:,}만 원**")
                         with st.expander("📊 전체 데이터 보기"):
-                            st.dataframe(merged, use_container_width=True, hide_index=True)
+                            st.dataframe(merged, width="stretch", hide_index=True)
 
         elif info['mode'] == '최고가' and 'data_high' in st.session_state:
             df = st.session_state['data_high'].copy()
@@ -322,15 +367,15 @@ def run_real_estate_app():
             f_col1, f_col2, f_col3 = st.columns(3)
             with f_col1:
                 dong_list = sorted(df['umdNm'].unique())
-                sel_dong = st.selectbox("**1. 동 선택**", dong_list, key="high_dong")
+                sel_dong = st.selectbox("**1. 동 선택**", dong_list)
                 df = df[df['umdNm'] == sel_dong]
             with f_col2:
                 apt_list = sorted(df['aptNm'].unique())
-                sel_apt = st.selectbox("**2. 아파트 선택**", apt_list, key="high_apt")
+                sel_apt = st.selectbox("**2. 아파트 선택**", apt_list)
                 df = df[df['aptNm'] == sel_apt]
             with f_col3:
                 area_list = sorted(df['num_area'].unique())
-                sel_area = st.selectbox("**3. 면적(㎡) 선택**", area_list, key="high_area")
+                sel_area = st.selectbox("**3. 면적(㎡) 선택**", area_list)
                 df_filtered = df[df['num_area'] == sel_area].sort_values('조회년월')
 
             if not df_filtered.empty:
@@ -339,9 +384,13 @@ def run_real_estate_app():
                 fig = px.line(
                     trend_df, x='조회년월', y='num_price', markers=True,
                     title=f"📅 {sel_apt}<br><span style='font-size:14px;'>({sel_area}㎡) 최근 1년 시세 흐름</span>",
-                    template="plotly_white"
+                    template="plotly_white",
+                    labels={'조회년월': '거래월', 'num_price': '평균 매매가(만원)'} 
                 )
-                fig.update_traces(line_color="#1E3A8A", line_width=3, marker_size=8)
+                fig.update_traces(
+                    line_color="#1E3A8A", line_width=3, marker_size=8,
+                    hovertemplate="<b>%{x}</b><br>매매가: %{y:,}만 원<extra></extra>"
+                )
                 fig.update_layout(
                     height=300, 
                     margin=dict(l=0, r=0, t=50, b=0), 
@@ -350,7 +399,7 @@ def run_real_estate_app():
                     title_font_size=16,
                     dragmode=False 
                 )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
                 
                 max_val = int(df_filtered['num_price'].max())
                 avg_val = int(df_filtered['num_price'].mean())
@@ -362,7 +411,7 @@ def run_real_estate_app():
                 display_df = df_filtered[['조회년월', 'num_price', 'floor']].rename(columns={
                     '조회년월': '거래월', 'num_price': '거래가(만원)', 'floor': '층'
                 })
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, width="stretch", hide_index=True)
 
 # ==========================================
 # 3. 화면 구성 (앱 2: 취득세/보유세)
@@ -416,7 +465,7 @@ def run_tax_app():
             st.write(f"현재 자동 추정된 공시가격: **{official_price_input:,}만 원**")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("세금 정밀 계산하기 🚀", use_container_width=True, key="btn_tax", type="primary"):
+    if st.button("세금 정밀 계산하기 🚀", width="stretch", key="btn_tax", type="primary"):
         st.toast("✅ 세금 정밀 계산 완료!", icon="💰") 
         
         acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
@@ -553,7 +602,7 @@ def run_capital_gains_tax_app():
         is_suspension = st.checkbox("💡 **다주택자 양도세 중과 유예 적용** (2026. 5. 9. 양도분까지)")
 
     st.markdown("---")
-    if st.button("양도세 정밀 계산하기 🚀", use_container_width=True, key="btn_cgt", type="primary"):
+    if st.button("양도세 정밀 계산하기 🚀", width="stretch", key="btn_cgt", type="primary"):
         st.toast("✅ 양도소득세 산출 완료!", icon="📈") 
         
         gain, tax_gain, deduct_amt, tax_base, rate, total_tax, status_msg, deduct_rate = calculate_capital_gains_tax(
@@ -673,7 +722,7 @@ def run_loan_simulator_app():
             loan_years = st.selectbox("**대출 상환 기간 (년)**", [10, 20, 30, 40, 50], index=2)
 
         st.markdown("---")
-        if st.button("PRO 정밀 분석 결과 보기 🚀", use_container_width=True, type="primary"):
+        if st.button("PRO 정밀 분석 결과 보기 🚀", width="stretch", type="primary"):
             st.toast("✅ 대출 및 자금조달 분석 완료!", icon="🏦") 
 
             if required_loan == 0:
@@ -767,7 +816,7 @@ def run_loan_simulator_app():
             jeonse_rate = st.number_input("**예상 전세 대출 금리 (연 %)**", min_value=1.0, value=4.5, step=0.1)
 
         st.markdown("---")
-        if st.button("맞춤형 전세대출 컨설팅 시작 🚀", use_container_width=True, type="primary"):
+        if st.button("맞춤형 전세대출 컨설팅 시작 🚀", width="stretch", type="primary"):
             st.toast("✅ 맞춤형 전세대출 컨설팅 완료!", icon="🔑") 
 
             if required_jeonse_loan == 0:
@@ -895,7 +944,97 @@ def run_loan_simulator_app():
         </div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 6. 메인 네비게이션 및 사이드바 (main 함수)
+# 6. 관심 단지 1년 추이 전용 오버레이 화면
+# ==========================================
+def run_favorite_analysis_app():
+    fav = st.session_state['auto_run_fav']
+    
+    st.markdown(f"""
+    <div style="background-color:#EFF6FF; padding:20px; border-radius:15px; border-left: 10px solid #1E3A8A; margin-bottom:20px;">
+        <h2 style="color:#1E3A8A; margin:0;">⭐ {fav['apt']} 정밀 분석</h2>
+        <p style="color:#4B5563; margin: 5px 0 0 0; font-size:15px;">📍 {fav['gu']} {fav['dong']} | <b>최근 1년 치 시세 흐름</b>을 판독합니다.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("✖️ 분석 창 닫기 (홈 화면으로 돌아가기)", type="secondary", width="stretch"):
+        del st.session_state['auto_run_fav']
+        st.rerun()
+        
+    lawd_cd = GU_CODES[fav['gu']]
+    deal_ym = "202602" 
+    
+    months_to_fetch = get_last_12_months(deal_ym)
+    all_data = []
+    my_bar = st.progress(0, text="1년 치 데이터를 불러오는 중입니다... (🚀 병렬 가속)")
+    
+    def fetch_month_data(ym):
+        df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
+        if not df.empty:
+            df['조회년월'] = ym
+        return df
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        futures = {executor.submit(fetch_month_data, ym): ym for ym in months_to_fetch}
+        completed_count = 0
+        for future in concurrent.futures.as_completed(futures):
+            df = future.result()
+            if not df.empty:
+                all_data.append(df)
+            completed_count += 1
+            my_bar.progress(completed_count / 12, text=f"데이터 수집 완료... ({completed_count}/12)")
+    
+    my_bar.empty()
+    
+    if all_data:
+        df_all = pd.concat(all_data, ignore_index=True)
+        df_all['num_price'] = pd.to_numeric(df_all['dealAmount'].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
+        df_all['num_area'] = pd.to_numeric(df_all['excluUseAr'], errors='coerce').round(1)
+        
+        df_fav = df_all[(df_all['umdNm'] == fav['dong']) & (df_all['aptNm'] == fav['apt'])]
+        
+        if not df_fav.empty:
+            area_list = sorted(df_fav['num_area'].unique())
+            sel_area = st.selectbox("**📐 면적(㎡) 선택**", area_list)
+            df_filtered = df_fav[df_fav['num_area'] == sel_area].sort_values('조회년월')
+            
+            if not df_filtered.empty:
+                trend_df = df_filtered.groupby('조회년월')['num_price'].mean().reset_index()
+                
+                fig = px.line(
+                    trend_df, x='조회년월', y='num_price', markers=True,
+                    title=f"📅 {fav['apt']} ({sel_area}㎡) 최근 1년 시세 흐름",
+                    template="plotly_white",
+                    labels={'조회년월': '거래월', 'num_price': '평균 매매가(만원)'} 
+                )
+                fig.update_traces(
+                    line_color="#1E3A8A", line_width=3, marker_size=8,
+                    hovertemplate="<b>%{x}</b><br>매매가: %{y:,}만 원<extra></extra>"
+                )
+                fig.update_layout(height=350, margin=dict(l=0, r=0, t=40, b=0), xaxis=dict(title="", tickangle=-45), yaxis=dict(title=""))
+                st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
+                
+                max_val = int(df_filtered['num_price'].max())
+                min_val = int(df_filtered['num_price'].min())
+                avg_val = int(df_filtered['num_price'].mean())
+                
+                c1, c2, c3 = st.columns(3)
+                c1.metric("1년 최고가 🏆", f"{max_val:,} 만원")
+                c2.metric("1년 최저가 📉", f"{min_val:,} 만원")
+                c3.metric("1년 평균가 📊", f"{avg_val:,} 만원")
+                
+                with st.expander("📊 상세 거래 내역 보기"):
+                    st.dataframe(df_filtered[['조회년월', 'num_price', 'floor', 'dealDay']].rename(columns={
+                        '조회년월': '거래월', 'num_price': '거래가(만원)', 'floor': '층', 'dealDay': '일'
+                    }), width="stretch", hide_index=True)
+            else:
+                st.warning("선택한 면적의 최근 1년 매매 내역이 없습니다.")
+        else:
+            st.warning("해당 단지의 최근 1년 매매 실거래 내역이 없습니다. (거래 가뭄 또는 입력 오류)")
+    else:
+        st.error("데이터를 불러오지 못했습니다.")
+
+# ==========================================
+# 7. 메인 네비게이션 및 사이드바 (main 함수)
 # ==========================================
 def main():
     st.markdown("""
@@ -913,7 +1052,7 @@ def main():
             max-width: 1000px; 
         }
 
-        /* 3. 버튼 디자인 고급화 */
+        /* 3. 메인 파란 버튼(primary) 디자인 고급화 */
         div.stButton > button[kind="primary"] {
             background-color: #1E3A8A !important; 
             color: white !important; 
@@ -924,34 +1063,50 @@ def main():
         div.stButton > button[kind="primary"]:hover {
             transform: translateY(-2px);
         }
+        
+        /* 4. 사이드바 관심 단지 버튼 커스텀 스타일링 */
+        div[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
+            border-radius: 6px;
+            border: 1px solid #E2E8F0;
+            background-color: #F8FAFC;
+            color: #0F172A;
+            padding: 0.6rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        div[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
+            border-color: #1E3A8A;
+            color: #1E3A8A;
+            background-color: #EFF6FF;
+        }
 
-        /* 4. 탭(Tab) 디자인 강조 (더 선명하고 눈에 띄게) */
+        /* 5. 탭(Tab) 디자인 강조 */
         div[data-baseweb="tab-list"] { 
             gap: 10px; 
             border-bottom: 2px solid #D1D5DB;
         }
         button[data-baseweb="tab"] {
-            font-size: 18px !important; /* 기존 15px -> 18px 확대 */
-            font-weight: 800 !important; /* 기존 600 -> 800 가장 뚜렷하게 */
+            font-size: 18px !important;
+            font-weight: 800 !important;
             background-color: transparent !important; 
             border: none !important;
             padding: 14px 20px !important; 
             color: #6B7280 !important;
         }
         button[data-baseweb="tab"]:hover {
-            color: #111827 !important; /* 마우스 오버 시 글자를 더 까맣게 */
+            color: #111827 !important;
         }
         button[aria-selected="true"] { 
-            color: #1E3A8A !important; /* 선택된 탭 글자를 딥 네이비로 */
-            background-color: #EFF6FF !important; /* 선택된 탭에 아주 연한 파란색 배경 추가 */
-            border-radius: 8px 8px 0 0 !important; /* 위쪽 모서리만 둥글게 */
-            border-bottom: 4px solid #1E3A8A !important; /* 하단 밑줄을 더 굵고 진하게 */
+            color: #1E3A8A !important;
+            background-color: #EFF6FF !important;
+            border-radius: 8px 8px 0 0 !important;
+            border-bottom: 4px solid #1E3A8A !important;
         }
         button[aria-selected="true"] p {
             color: #1E3A8A !important;
         }
 
-        /* 5. 사이드바 뉴스 박스 디자인 */
+        /* 6. 사이드바 뉴스 박스 디자인 */
         .news-box { 
             padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; line-height: 1.4; 
             border: 1px solid #E5E7EB; 
@@ -962,7 +1117,7 @@ def main():
         .bg-blue { background-color: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af !important; }
         .bg-gray { background-color: #f9fafb; border-left: 4px solid #6b7280; color: #374151 !important; }
 
-        /* 6. 홈 화면 기능 카드 스타일 */
+        /* 7. 홈 화면 기능 카드 스타일 */
         .feature-card {
             background-color: #ffffff;
             border-radius: 16px;
@@ -984,14 +1139,55 @@ def main():
         .feature-desc { font-size: 13px; color: #6B7280; line-height: 1.5; }
         
         h1, h2, h3, h4 { font-weight: 700 !important; letter-spacing: -0.5px; }
+        
+        /* 🚀 8. 불필요한 Deploy 버튼 숨김 (사이드바 버튼에는 영향 안 줌) */
+        [data-testid="stAppDeployButton"],
+        .stAppDeployButton {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        
+        /* 🚀 9. iframe 하얀 배경을 완전히 투명하게 만드는 CSS (애니메이션 해결 코드 유지) */
+        iframe {
+            background-color: transparent !important;
+            border: none !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
     with st.sidebar:
         if os.path.exists(logo_path):
-            st.image(logo_path, use_container_width=True)
+            st.image(logo_path, width="stretch")
         else:
             st.markdown("<h2 style='text-align: center; color: #333;'>🏢 집스탯 (ZipStat)</h2>", unsafe_allow_html=True)
+            
+        st.markdown("---")
+        st.markdown("### ⭐ 내 관심 단지")
+        
+        if HAS_LS:
+            f_list = localS.getItem("fav_apts")
+            if f_list is None or f_list == "": f_list = []
+            elif isinstance(f_list, str):
+                try: f_list = json.loads(f_list)
+                except: f_list = []
+        else:
+            f_list = st.session_state['fav_apts']
+            
+        if not f_list:
+            st.info("실거래가 탭에서 자주 보는 아파트를 등록해 보세요!")
+        else:
+            for idx, fav in enumerate(f_list):
+                c1, c2 = st.columns([85, 15]) 
+                with c1:
+                    if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", width="stretch"):
+                        st.session_state['auto_run_fav'] = fav
+                        st.rerun()
+                with c2:
+                    if st.button("✖", key=f"fbtn_del_{idx}", width="stretch"):
+                        new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
+                        if HAS_LS: localS.setItem("fav_apts", json.dumps(new_list))
+                        else: st.session_state['fav_apts'] = new_list
+                        st.rerun()
         
         st.markdown("---")
         st.markdown("### 📢 부동산/금융 최신 트렌드")
@@ -1023,22 +1219,24 @@ def main():
         st.markdown("""
         <div style="text-align: center; color: #aaaaaa; font-size: 11px;">
             © 2026 ZipStat PRO.<br>All rights reserved.<br><br>
-            👨‍💻 Developed by <b>[sweet_ourzip]</b>
+            👨‍💻 Developed by <b>[sweetourzip@naver.com]</b>
         </div>
         """, unsafe_allow_html=True)
 
-    # 🚀 메인 타이틀 텍스트 앞에 uni6_loan.png 아이콘을 HTML 렌더링으로 배치
     st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
 
-    tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 홈", "🔍 실거래가 분석", "💰 세금 계산", "📈 양도세 계산", "🏦 자금조달/대출"])
-    
-    with tab0: run_home_app()
-    with tab1: run_real_estate_app() 
-    with tab2: run_tax_app()
-    with tab3: run_capital_gains_tax_app()
-    with tab4: run_loan_simulator_app()
+    if 'auto_run_fav' in st.session_state:
+        run_favorite_analysis_app()
+    else:
+        tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 홈", "🔍 실거래가 분석", "💰 세금 계산", "📈 양도세 계산", "🏦 자금조달/대출"])
         
+        with tab0: run_home_app()
+        with tab1: run_real_estate_app() 
+        with tab2: run_tax_app()
+        with tab3: run_capital_gains_tax_app()
+        with tab4: run_loan_simulator_app()
+            
     st.markdown("---")
     st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 및 대출 한도는 전문가 및 금융기관과 상담하시기 바랍니다.")
 
