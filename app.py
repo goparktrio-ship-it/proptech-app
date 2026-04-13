@@ -45,7 +45,7 @@ if 'ls_loaded' not in st.session_state:
 
 # 앱 실행 시 단 한 번만 브라우저 저장소를 읽어옴 (속도 지연으로 인한 덮어쓰기 충돌 완벽 방지)
 if HAS_LS and not st.session_state['ls_loaded']:
-    stored_data = localS.getItem("fav_apts", key="init_load")
+    stored_data = localS.getItem("fav_apts")
     if stored_data is not None: 
         if stored_data and stored_data != "null" and stored_data != "":
             try:
