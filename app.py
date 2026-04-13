@@ -212,7 +212,7 @@ def run_real_estate_app():
         elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
-            my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수 수집 중입니다. (🚀 병렬 가속 중)")
+            my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수집 중입니다. (🚀 병렬 가속 중)")
             
             def fetch_month_data(ym):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
@@ -968,6 +968,31 @@ def run_loan_simulator_app():
 # 6. 관심 단지 1년 추이 전용 오버레이 화면
 # ==========================================
 def run_favorite_analysis_app():
+    # 🚀 핵심 해결 2: 모바일 X버튼 및 배경 터치 강제 스크립트 (화면 진입 시 즉각 실행)
+    if st.session_state.get('collapse_sidebar', False):
+        close_js = """
+        <script>
+            setTimeout(function() {
+                const doc = window.parent.document;
+                
+                // 1. 모바일 닫기 버튼 (X 아이콘) 강제 클릭
+                const closeBtn = doc.querySelector('button[kind="headerNoPadding"]');
+                if (closeBtn) closeBtn.click();
+                
+                // 2. 반투명 배경(Backdrop) 강제 클릭
+                const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+                if (sidebar && sidebar.nextElementSibling) {
+                    sidebar.nextElementSibling.click();
+                }
+                
+                // 3. PC를 위한 ESC 키보드 이벤트
+                doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', keyCode: 27, bubbles: true}));
+            }, 150); // 모바일 브라우저 렌더링 속도 고려 (너무 빠르면 작동 안 함)
+        </script>
+        """
+        components.html(close_js, height=0, width=0)
+        st.session_state['collapse_sidebar'] = False
+
     fav = st.session_state['auto_run_fav']
     
     st.markdown(f"""
@@ -1178,28 +1203,28 @@ def main():
             border: none !important;
         }
 
-        /* 🚀 핵심 해결 1: 모바일 사이드바 관심단지 목록 세로 겹침 완벽 방지 */
+        /* 🚀 핵심 해결 1: 모바일 사이드바 강제 한줄 렌더링 (Streamlit 고집 꺾기) */
         @media (max-width: 768px) {
             div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
-                align-items: stretch !important;
+                align-items: center !important;
             }
             div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
+                flex: 0 0 75% !important;
                 width: 75% !important;
-                flex: 1 1 75% !important;
                 min-width: 75% !important;
             }
             div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
-                width: 25% !important;
-                flex: 1 1 25% !important;
-                min-width: 25% !important;
-                margin-left: 5px !important;
+                flex: 0 0 20% !important;
+                width: 20% !important;
+                min-width: 20% !important;
+                margin-left: 5% !important;
             }
         }
         
-        /* 삭제 버튼(✖) 전용 디자인 */
+        /* 삭제 버튼(✖) 전용 디자인 (직관성 강화 및 높이 조절) */
         div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
@@ -1309,39 +1334,6 @@ def main():
             
     st.markdown("---")
     st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 및 대출 한도는 전문가 및 금융기관과 상담하시기 바랍니다.")
-
-    # 🚀 핵심 해결 2: 모바일 어두운 배경 + X버튼 다중 추적 클릭 스크립트 (main 맨 아래에 위치하여 렌더링 보장)
-    if st.session_state.get('collapse_sidebar', False):
-        collapse_js = """
-        <script>
-            const doc = window.parent.document;
-            const closeSidebar = () => {
-                // 1. 모바일 어두운 배경(Backdrop) 찾아서 클릭
-                const sidebar = doc.querySelector('[data-testid="stSidebar"]');
-                if (sidebar) {
-                    const overlay = sidebar.nextElementSibling;
-                    if (overlay && window.getComputedStyle(overlay).backgroundColor !== 'rgba(0, 0, 0, 0)') {
-                        overlay.click();
-                    }
-                }
-                // 2. 명시적인 사이드바 닫기 버튼 클릭 (PC / 모바일 공용)
-                const closeBtns = doc.querySelectorAll('[data-testid="stSidebar"] button, [data-testid="stSidebarCollapseButton"]');
-                closeBtns.forEach(btn => {
-                    const svg = btn.querySelector('svg');
-                    if (svg && (svg.getAttribute('aria-label') === 'Close' || btn.getAttribute('kind') === 'headerNoPadding')) {
-                        btn.click();
-                    }
-                });
-            };
-            
-            // 모바일 렌더링 속도를 고려해 여러 번 시도하여 완벽 차단
-            setTimeout(closeSidebar, 100);
-            setTimeout(closeSidebar, 300);
-            setTimeout(closeSidebar, 800);
-        </script>
-        """
-        components.html(collapse_js, height=0, width=0)
-        st.session_state['collapse_sidebar'] = False
 
 if __name__ == "__main__":
     main()
