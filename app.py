@@ -23,7 +23,7 @@ try:
 except FileNotFoundError:
     img_icon = "🏢"
 
-# 🚀 핵심 해결 1: initial_sidebar_state를 "collapsed"로 변경하여 처음 접속 시 홈 화면이 바로 보이도록 수정
+# 앱 처음 실행 시 사이드바가 화면을 가리지 않도록 닫힌 상태(collapsed) 유지
 st.set_page_config(
     page_title="집스탯 PRO V2.1",
     page_icon=img_icon,
@@ -31,7 +31,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# 🚀 핵심 해결 2: LocalStorage 초기화 및 세션 상태 중앙 통제
 try:
     from streamlit_local_storage import LocalStorage
     localS = LocalStorage()
@@ -44,11 +43,9 @@ if 'fav_apts' not in st.session_state:
 if 'ls_loaded' not in st.session_state:
     st.session_state['ls_loaded'] = False
 
-# [추가됨] 로컬 스토리지 저장을 지연 실행하기 위한 예약 플래그
 if 'needs_ls_save' not in st.session_state:
     st.session_state['needs_ls_save'] = False
 
-# 앱 실행 시 단 한 번만 브라우저 저장소를 읽어옴 (속도 지연으로 인한 덮어쓰기 충돌 완벽 방지)
 if HAS_LS and not st.session_state['ls_loaded']:
     stored_data = localS.getItem("fav_apts")
     if stored_data is not None: 
@@ -59,7 +56,6 @@ if HAS_LS and not st.session_state['ls_loaded']:
                 pass
         st.session_state['ls_loaded'] = True
 
-# 🚀 [추가됨] st.rerun() 직후 최상단에서 예약된 로컬 스토리지 저장을 안전하게 수행
 if st.session_state['needs_ls_save']:
     if HAS_LS:
         localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
@@ -83,7 +79,7 @@ if os.path.exists(title_icon_path):
     title_icon_html = f'<img src="data:image/png;base64,{encoded_string}" style="height: 45px; width: auto; vertical-align: middle; margin-right: 8px; margin-bottom: 8px;">'
 
 # ==========================================
-# 1. 화면 구성 (앱 0: 홈 화면 - 모바일 순서 개선)
+# 1. 화면 구성 (앱 0: 홈 화면)
 # ==========================================
 @st.fragment
 def run_home_app():
@@ -216,7 +212,7 @@ def run_real_estate_app():
         elif category == "🚀 1년 내 최고가 분석":
             months_to_fetch = get_last_12_months(deal_ym)
             all_data = []
-            my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수집 중입니다. (🚀 병렬 가속 중)")
+            my_bar = st.progress(0, text="과거 1년 치 실거래가 데이터를 수 수집 중입니다. (🚀 병렬 가속 중)")
             
             def fetch_month_data(ym):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
@@ -415,10 +411,16 @@ def run_real_estate_app():
                     xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), 
                     yaxis=dict(title="", tickfont=dict(size=10), fixedrange=True), 
                     title_font_size=16,
-                    dragmode=False 
+                    dragmode=False,
+                    hovermode='x'
                 )
-                # 🚀 핵심 해결 3: 최고가 분석 그래프에도 staticPlot(완전 고정) 속성 부여
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+                st.plotly_chart(fig, use_container_width=True, config={
+                    'displayModeBar': False, 
+                    'scrollZoom': False,
+                    'doubleClick': False,
+                    'showTips': False,
+                    'staticPlot': True 
+                })
                 
                 max_val = int(df_filtered['num_price'].max())
                 avg_val = int(df_filtered['num_price'].mean())
@@ -1036,7 +1038,6 @@ def run_favorite_analysis_app():
                     yaxis=dict(title="", fixedrange=True),
                     dragmode=False
                 )
-                # 🚀 핵심 해결 3: 관심 단지 그래프에도 staticPlot 속성을 부여하여 스와이프/확대 원천 차단
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
                 
                 max_val = int(df_filtered['num_price'].max())
@@ -1166,44 +1167,46 @@ def main():
         
         h1, h2, h3, h4 { font-weight: 700 !important; letter-spacing: -0.5px; }
         
-        /* 🚀 8. 불필요한 Deploy 버튼 숨김 (사이드바 버튼에는 영향 안 줌) */
         [data-testid="stAppDeployButton"],
         .stAppDeployButton {
             display: none !important;
             visibility: hidden !important;
         }
         
-        /* 🚀 9. iframe 하얀 배경을 완전히 투명하게 만드는 CSS (애니메이션 해결 코드 유지) */
         iframe {
             background-color: transparent !important;
             border: none !important;
         }
 
-        /* 🚀 10. 사이드바 관심단지 목록 모바일 세로 겹침 방지 및 삭제 버튼 크기 최적화 */
-        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: stretch !important;
-            gap: 8px !important;
+        /* 🚀 핵심 해결 1: 모바일 사이드바 관심단지 목록 세로 겹침 완벽 방지 */
+        @media (max-width: 768px) {
+            div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                align-items: stretch !important;
+            }
+            div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
+                width: 75% !important;
+                flex: 1 1 75% !important;
+                min-width: 75% !important;
+            }
+            div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
+                width: 25% !important;
+                flex: 1 1 25% !important;
+                min-width: 25% !important;
+                margin-left: 5px !important;
+            }
         }
-        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
-            width: 80% !important;
-            flex: 1 1 80% !important;
-            min-width: 0 !important;
-        }
-        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
-            width: 20% !important;
-            flex: 1 1 20% !important;
-            min-width: 0 !important;
-        }
-        /* 삭제 버튼(✖) 전용 디자인 (직관성 강화) */
+        
+        /* 삭제 버튼(✖) 전용 디자인 */
         div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
             color: #e11d48 !important;
             padding: 0 !important;
-            min-height: 2.8rem;
+            height: 100% !important;
+            min-height: 2.5rem !important;
         }
         div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button:hover {
             background-color: #ffe4e6 !important;
@@ -1212,11 +1215,9 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # 셀렉트박스 터치 시 모바일 키보드 팝업 강제 차단 스크립트
     disable_keyboard_js = """
     <script>
         const doc = window.parent.document;
-        // 화면에 변화가 생길 때마다 셀렉트박스 input을 찾아 키보드 비활성화 속성 주입
         const observer = new MutationObserver((mutations) => {
             const selectInputs = doc.querySelectorAll('div[data-baseweb="select"] input');
             selectInputs.forEach((input) => {
@@ -1229,32 +1230,6 @@ def main():
     </script>
     """
     components.html(disable_keyboard_js, height=0, width=0)
-
-    # 🚀 핵심 해결 3: 강력해진 사이드바 자동 닫기 스크립트 (모바일 배경 터치 + ESC 연타)
-    if st.session_state.get('collapse_sidebar', False):
-        collapse_js = """
-        <script>
-            const doc = window.parent.document;
-            let attempts = 0;
-            const interval = setInterval(() => {
-                // 1. ESC 키보드 이벤트 강제 발생
-                doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true}));
-                
-                // 2. 모바일 환경: 사이드바 바깥쪽 반투명 어두운 배경(Backdrop) 강제 터치
-                const overlay = doc.querySelector('[data-testid="stSidebar"] + div');
-                if (overlay) overlay.click();
-                
-                // 3. PC 환경: 명시적 닫기 버튼 클릭
-                const closeBtn = doc.querySelector('[data-testid="stSidebarCollapseButton"]');
-                if (closeBtn) closeBtn.click();
-                
-                attempts++;
-                if(attempts > 5) clearInterval(interval);
-            }, 100);
-        </script>
-        """
-        components.html(collapse_js, height=0, width=0)
-        st.session_state['collapse_sidebar'] = False
 
     with st.sidebar:
         if os.path.exists(logo_path):
@@ -1334,6 +1309,39 @@ def main():
             
     st.markdown("---")
     st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 및 대출 한도는 전문가 및 금융기관과 상담하시기 바랍니다.")
+
+    # 🚀 핵심 해결 2: 모바일 어두운 배경 + X버튼 다중 추적 클릭 스크립트 (main 맨 아래에 위치하여 렌더링 보장)
+    if st.session_state.get('collapse_sidebar', False):
+        collapse_js = """
+        <script>
+            const doc = window.parent.document;
+            const closeSidebar = () => {
+                // 1. 모바일 어두운 배경(Backdrop) 찾아서 클릭
+                const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+                if (sidebar) {
+                    const overlay = sidebar.nextElementSibling;
+                    if (overlay && window.getComputedStyle(overlay).backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                        overlay.click();
+                    }
+                }
+                // 2. 명시적인 사이드바 닫기 버튼 클릭 (PC / 모바일 공용)
+                const closeBtns = doc.querySelectorAll('[data-testid="stSidebar"] button, [data-testid="stSidebarCollapseButton"]');
+                closeBtns.forEach(btn => {
+                    const svg = btn.querySelector('svg');
+                    if (svg && (svg.getAttribute('aria-label') === 'Close' || btn.getAttribute('kind') === 'headerNoPadding')) {
+                        btn.click();
+                    }
+                });
+            };
+            
+            // 모바일 렌더링 속도를 고려해 여러 번 시도하여 완벽 차단
+            setTimeout(closeSidebar, 100);
+            setTimeout(closeSidebar, 300);
+            setTimeout(closeSidebar, 800);
+        </script>
+        """
+        components.html(collapse_js, height=0, width=0)
+        st.session_state['collapse_sidebar'] = False
 
 if __name__ == "__main__":
     main()
