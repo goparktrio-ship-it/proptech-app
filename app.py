@@ -392,6 +392,28 @@ def run_real_estate_app():
                 sel_area = st.selectbox("**3. 면적(㎡) 선택**", area_list)
                 df_filtered = df[df['num_area'] == sel_area].sort_values('조회년월')
 
+            # 🚀 기능 추가: 최고가 분석 화면에서도 관심 단지 등록/해제 기능 연동
+            if sel_apt and sel_dong:
+                is_fav = any(f['apt'] == sel_apt and f['dong'] == sel_dong for f in fav_list)
+                _, btn_col = st.columns([4, 1])
+                with btn_col:
+                    if is_fav:
+                        if st.button("❌ 관심 해제", key="fav_del_high", width="stretch"):
+                            new_list = [f for f in fav_list if not (f['apt'] == sel_apt and f['dong'] == sel_dong)]
+                            st.session_state['fav_apts'] = new_list
+                            st.session_state['needs_ls_save'] = True
+                            st.rerun()
+                    else:
+                        if st.button("⭐ 관심 등록", key="fav_add_high", width="stretch"):
+                            if len(fav_list) >= 10:
+                                st.error("🚨 단지는 최대 10개까지만 등록 가능합니다!")
+                            else:
+                                new_list = fav_list + [{'gu': info['gu'], 'dong': sel_dong, 'apt': sel_apt}]
+                                st.session_state['fav_apts'] = new_list
+                                st.session_state['needs_ls_save'] = True
+                                st.toast(f"{sel_apt} 관심 등록 완료!", icon="⭐")
+                                st.rerun()
+
             if not df_filtered.empty:
                 trend_df = df_filtered.groupby('조회년월')['num_price'].mean().reset_index()
                 
@@ -1203,39 +1225,34 @@ def main():
             border: none !important;
         }
 
-        /* 🚀 핵심 해결: 모바일 사이드바 관심단지 한 줄 고정 (픽셀 단위 강제 고정) */
+        /* 🚀 핵심 해결: 모바일 사이드바 가로 스크롤 & 뚱뚱한 버튼 완벽 방지 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 6px !important;
-            align-items: center !important;
+            gap: 0.3rem !important; /* 가로 여백을 최소화하여 삐져나감 방지 */
+            align-items: flex-start !important; /* 버튼이 길게 늘어나는 것 방지 */
         }
-        /* 첫 번째 단지명 버튼 영역: 남은 공간 모두 차지 */
+        
+        /* 단지명 버튼 영역: 전체의 80% */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(1) {
-            width: calc(100% - 46px) !important;
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
+            width: 80% !important;
+            flex: 1 1 80% !important;
         }
-        /* 두 번째 삭제 버튼 영역: 무조건 40px 크기 고정 */
+        
+        /* 삭제 버튼 영역: 전체의 20% (가로 스크롤 절대 방지) */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) {
-            width: 40px !important;
-            flex: 0 0 40px !important;
-            min-width: 40px !important;
+            width: 20% !important;
+            flex: 0 0 20% !important;
         }
-        /* 삭제 버튼 ✖ 디자인 완벽 최적화 */
+        
+        /* 삭제 버튼 ✖ 고유 디자인 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
             color: #e11d48 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            height: 42px !important; /* 버튼 높이 강제 맞춤 */
-            width: 40px !important;  /* 버튼 너비 강제 맞춤 */
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            border-radius: 6px !important;
+            padding: 0.2rem !important; /* 내부 여백 축소하여 날씬하게 유지 */
+            height: auto !important; /* 억지 높이 지정 해제 */
         }
     </style>
     """, unsafe_allow_html=True)
