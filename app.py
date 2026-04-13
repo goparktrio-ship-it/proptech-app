@@ -392,7 +392,7 @@ def run_real_estate_app():
                 sel_area = st.selectbox("**3. 면적(㎡) 선택**", area_list)
                 df_filtered = df[df['num_area'] == sel_area].sort_values('조회년월')
 
-            # 🚀 기능 추가: 최고가 분석 화면에서도 관심 단지 등록/해제 기능 연동
+            # 🚀 최고가 분석 화면에서도 관심 단지 등록/해제 완벽 연동
             if sel_apt and sel_dong:
                 is_fav = any(f['apt'] == sel_apt and f['dong'] == sel_dong for f in fav_list)
                 _, btn_col = st.columns([4, 1])
@@ -1225,34 +1225,42 @@ def main():
             border: none !important;
         }
 
-        /* 🚀 핵심 해결: 모바일 사이드바 가로 스크롤 & 뚱뚱한 버튼 완벽 방지 */
+        /* 🚀 핵심 해결 2: 모바일 사이드바 세로 찢어짐(Stretch) 완벽 방지 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 0.3rem !important; /* 가로 여백을 최소화하여 삐져나감 방지 */
-            align-items: flex-start !important; /* 버튼이 길게 늘어나는 것 방지 */
+            gap: 5px !important;
+            align-items: center !important; /* 버튼이 길게 찢어지는 것을 완벽 차단! */
         }
         
-        /* 단지명 버튼 영역: 전체의 80% */
+        /* 단지명 버튼 영역 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(1) {
-            width: 80% !important;
-            flex: 1 1 80% !important;
+            width: calc(100% - 45px) !important;
+            flex: 1 1 auto !important;
         }
         
-        /* 삭제 버튼 영역: 전체의 20% (가로 스크롤 절대 방지) */
+        /* 삭제 버튼 영역 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) {
-            width: 20% !important;
-            flex: 0 0 20% !important;
+            width: 40px !important;
+            flex: 0 0 40px !important;
         }
         
-        /* 삭제 버튼 ✖ 고유 디자인 */
+        /* 삭제 버튼 ✖ 고정 크기 디자인 (정사각형 유지) */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
             color: #e11d48 !important;
-            padding: 0.2rem !important; /* 내부 여백 축소하여 날씬하게 유지 */
-            height: auto !important; /* 억지 높이 지정 해제 */
+            padding: 0 !important;
+            margin: 0 !important;
+            height: 38px !important; /* 높이 강제 고정 */
+            min-height: 38px !important; 
+            max-height: 38px !important; 
+            width: 38px !important; /* 너비 강제 고정 */
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -1273,6 +1281,25 @@ def main():
     """
     components.html(disable_keyboard_js, height=0, width=0)
 
+    st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
+
+    # 🚀 핵심 해결 1: 메인 화면(탭)을 무조건 먼저 렌더링 (사이드바 변화로 인한 탭 초기화 방지)
+    if 'auto_run_fav' in st.session_state:
+        run_favorite_analysis_app()
+    else:
+        tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 홈", "🔍 실거래가 분석", "💰 세금 계산", "📈 양도세 계산", "🏦 자금조달/대출"])
+        
+        with tab0: run_home_app()
+        with tab1: run_real_estate_app() 
+        with tab2: run_tax_app()
+        with tab3: run_capital_gains_tax_app()
+        with tab4: run_loan_simulator_app()
+            
+    st.markdown("---")
+    st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 및 대출 한도는 전문가 및 금융기관과 상담하시기 바랍니다.")
+
+    # 🚀 핵심 해결 1: 메인 탭 렌더링이 완전히 끝난 후, 사이드바를 제일 마지막에 그림 (코드의 맨 뒤에 배치)
     with st.sidebar:
         if os.path.exists(logo_path):
             st.image(logo_path, width="stretch")
@@ -1334,23 +1361,6 @@ def main():
             👨‍💻 Developed by <b>[sweetourzip@naver.com]</b>
         </div>
         """, unsafe_allow_html=True)
-
-    st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
-
-    if 'auto_run_fav' in st.session_state:
-        run_favorite_analysis_app()
-    else:
-        tab0, tab1, tab2, tab3, tab4 = st.tabs(["🏠 홈", "🔍 실거래가 분석", "💰 세금 계산", "📈 양도세 계산", "🏦 자금조달/대출"])
-        
-        with tab0: run_home_app()
-        with tab1: run_real_estate_app() 
-        with tab2: run_tax_app()
-        with tab3: run_capital_gains_tax_app()
-        with tab4: run_loan_simulator_app()
-            
-    st.markdown("---")
-    st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 및 대출 한도는 전문가 및 금융기관과 상담하시기 바랍니다.")
 
 if __name__ == "__main__":
     main()
