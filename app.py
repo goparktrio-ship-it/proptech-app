@@ -1172,6 +1172,24 @@ def main():
         }
     </style>
     """, unsafe_allow_html=True)
+    
+        # 🚀 [여기에 추가!] 셀렉트박스 터치 시 모바일 키보드 팝업 강제 차단 스크립트
+    disable_keyboard_js = """
+    <script>
+        const doc = window.parent.document;
+        // 화면에 변화가 생길 때마다 셀렉트박스 input을 찾아 키보드 비활성화 속성 주입
+        const observer = new MutationObserver((mutations) => {
+            const selectInputs = doc.querySelectorAll('div[data-baseweb="select"] input');
+            selectInputs.forEach((input) => {
+                if (input.getAttribute('inputmode') !== 'none') {
+                    input.setAttribute('inputmode', 'none');
+                }
+            });
+        });
+        observer.observe(doc.body, { childList: true, subtree: true });
+    </script>
+    """
+    components.html(disable_keyboard_js, height=0, width=0)
 
     with st.sidebar:
         if os.path.exists(logo_path):
