@@ -754,7 +754,7 @@ def run_loan_simulator_app():
             if required_loan == 0:
                 st.success("보유 현금이 충분하여 대출이 필요하지 않습니다! 🎉")
             elif current_homes == "2주택 이상" and is_regulated_loan:
-                st.error("🚨 **대출 불가!** 다주택자는 규제지역 내에서 주택 취득 목적의 주담대를 받을 수 없습니다. (LTV 0%)")
+                st.error("🚨 **대출 불가!** 다주택자는 규제지역 내에서 주택 취득 목적의 주담대를 받을 수 정밀 분석을 제공할 수 없습니다. (LTV 0%)")
             else:
                 policy_matches = check_policy_loan_eligibility(ltv_base_price, annual_income, is_married, has_newborn, is_capital_area, is_first_time)
                 if policy_matches:
@@ -1000,10 +1000,11 @@ def run_favorite_analysis_app():
 
     fav = st.session_state['auto_run_fav']
     
+    # 🚀 수정: 정밀분석 문구 제거 및 설명글 축소
     st.markdown(f"""
     <div style="background-color:#EFF6FF; padding:20px; border-radius:15px; border-left: 10px solid #1E3A8A; margin-bottom:20px;">
-        <h2 style="color:#1E3A8A; margin:0;">⭐ {fav['apt']} 정밀 분석</h2>
-        <p style="color:#4B5563; margin: 5px 0 0 0; font-size:15px;">📍 {fav['gu']} {fav['dong']} | <b>최근 1년 치 시세 흐름</b>을 판독합니다.</p>
+        <h2 style="color:#1E3A8A; margin:0;">⭐ {fav['apt']}</h2>
+        <p style="color:#4B5563; margin: 5px 0 0 0; font-size:15px;">📍 {fav['gu']} {fav['dong']} | <b>최근 1년 치 시세</b></p>
     </div>
     """, unsafe_allow_html=True)
     
