@@ -43,7 +43,7 @@ if 'fav_apts' not in st.session_state:
 if 'ls_loaded' not in st.session_state:
     st.session_state['ls_loaded'] = False
 
-# [추가됨] 로컬 스토리지 저장을 지연 실행하기 위한 플래그
+# [추가됨] 로컬 스토리지 저장을 지연 실행하기 위한 예약 플래그
 if 'needs_ls_save' not in st.session_state:
     st.session_state['needs_ls_save'] = False
 
@@ -58,27 +58,11 @@ if HAS_LS and not st.session_state['ls_loaded']:
                 pass
         st.session_state['ls_loaded'] = True
 
-# [추가됨] 상태 변경 플래그가 켜졌을 때만 안정적으로 로컬 스토리지에 기록 (st.rerun 충돌 방지)
+# 🚀 [추가됨] st.rerun() 직후 최상단에서 예약된 로컬 스토리지 저장을 안전하게 수행
 if st.session_state['needs_ls_save']:
     if HAS_LS:
         localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
     st.session_state['needs_ls_save'] = False
-
-# [추가됨] 버튼 클릭 시 실행되는 통합 콜백 함수
-def update_fav(action, item=None):
-    current_list = st.session_state.get('fav_apts', [])
-    if action == 'add' and item:
-        if len(current_list) < 10:
-            current_list.append(item)
-            st.toast(f"{item['apt']} 관심 등록 완료!", icon="⭐")
-        else:
-            st.toast("🚨 단지는 최대 10개까지만 등록 가능합니다!", icon="🚨")
-    elif action == 'remove' and item:
-        current_list = [f for f in current_list if not (f['apt'] == item['apt'] and f['dong'] == item['dong'])]
-        st.toast(f"{item['apt']} 관심 해제 완료!", icon="❌")
-        
-    st.session_state['fav_apts'] = current_list
-    st.session_state['needs_ls_save'] = True
 
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
@@ -187,7 +171,6 @@ def run_home_app():
 def run_real_estate_app():
     st.subheader("🏠 실거래가/전세가율")
     
-    # 🚀 핵심 해결 2: 안전한 session_state 값만 사용 (매번 브라우저를 읽지 않음)
     fav_list = st.session_state['fav_apts']
         
     st.markdown("#### 🔍 검색 조건 설정")
@@ -304,11 +287,23 @@ def run_real_estate_app():
                 is_fav = any(f['apt'] == selected_apt and f['dong'] == selected_dong for f in fav_list)
                 _, btn_col = st.columns([4, 1])
                 with btn_col:
-                    target_item = {'gu': info['gu'], 'dong': selected_dong, 'apt': selected_apt}
+                    # 🚀 핵심 해결 2: 콜백(on_click) 대신 st.rerun() 방식을 쓰되, 저장 플래그를 ON 합니다.
                     if is_fav:
-                        st.button("❌ 관심 해제", width="stretch", on_click=update_fav, args=('remove', target_item))
+                        if st.button("❌ 관심 해제", width="stretch"):
+                            new_list = [f for f in fav_list if not (f['apt'] == selected_apt and f['dong'] == selected_dong)]
+                            st.session_state['fav_apts'] = new_list
+                            st.session_state['needs_ls_save'] = True
+                            st.rerun()
                     else:
-                        st.button("⭐ 관심 등록", width="stretch", on_click=update_fav, args=('add', target_item))
+                        if st.button("⭐ 관심 등록", width="stretch"):
+                            if len(fav_list) >= 10:
+                                st.error("🚨 단지는 최대 10개까지만 등록 가능합니다!")
+                            else:
+                                new_list = fav_list + [{'gu': info['gu'], 'dong': selected_dong, 'apt': selected_apt}]
+                                st.session_state['fav_apts'] = new_list
+                                st.session_state['needs_ls_save'] = True
+                                st.toast(f"{selected_apt} 관심 등록 완료!", icon="⭐")
+                                st.rerun()
 
             if price_col in df.columns:
                 valid_df = df.dropna(subset=[price_col])
@@ -955,7 +950,7 @@ def run_loan_simulator_app():
         <ul style='margin-top: 0; padding-left: 20px;'>
             <li><b>조건/한도:</b> 보증금 상한(수도권 7억, 지방 5억 이하) / [HUG] 최대 4억 원 / [HF] 최대 2.22억 원</li>
             <li><b>장점:</b> [HUG] 대출과 동시에 전세보증금 반환보증보험이 무조건 100% 자동 가입되어 깡통전세 예방에 탁월합니다.</li>
-            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등)에 따라 거절될 수 있습니다.</li>
+            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등) 따라 거절될 수 있습니다.</li>
         </ul>
         <hr style='margin: 10px 0;'>
         <b>3. 🏢 SGI 서울보증보험 전세대출</b>
@@ -1200,8 +1195,12 @@ def main():
                         st.session_state['auto_run_fav'] = fav
                         st.rerun()
                 with c2:
-                    # 🚀 핵심 해결 6: 사이드바 삭제 버튼도 on_click 콜백 연결! (st.rerun 완전히 제거!)
-                    st.button("✖", key=f"fbtn_del_{idx}", width="stretch", on_click=update_fav, args=('remove', fav))
+                    # 🚀 핵심 해결 3: 저장 예약 시스템으로 복구
+                    if st.button("✖", key=f"fbtn_del_{idx}", width="stretch"):
+                        new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
+                        st.session_state['fav_apts'] = new_list
+                        st.session_state['needs_ls_save'] = True
+                        st.rerun()
         
         st.markdown("---")
         st.markdown("### 📢 부동산/금융 최신 트렌드")
