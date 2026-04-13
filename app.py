@@ -287,7 +287,6 @@ def run_real_estate_app():
                 is_fav = any(f['apt'] == selected_apt and f['dong'] == selected_dong for f in fav_list)
                 _, btn_col = st.columns([4, 1])
                 with btn_col:
-                    # 🚀 핵심 해결 2: 콜백(on_click) 대신 st.rerun() 방식을 쓰되, 저장 플래그를 ON 합니다.
                     if is_fav:
                         if st.button("❌ 관심 해제", width="stretch"):
                             new_list = [f for f in fav_list if not (f['apt'] == selected_apt and f['dong'] == selected_dong)]
@@ -822,7 +821,7 @@ def run_loan_simulator_app():
             elif jeonse_homes == "1주택":
                 is_regulated_1home = st.checkbox("🚨 보유하신 기존 주택이 **규제지역(서울 등)**에 있습니까?")
                 if is_regulated_1home:
-                    st.warning("⚠️ **[최신 규제]** 1주택자 규제지역 보유 시 전세대출 이자가 DSR 산정에 엄격히 포함되어 한도가 대폭 축소될 수 파입니다.")
+                    st.warning("⚠️ **[최신 규제]** 1주택자 규제지역 보유 시 전세대출 이자가 DSR 산정에 엄격히 포함되어 한도가 대폭 축소될 수 있습니다.")
                     
                 is_speculative = st.checkbox("🚨 보유 주택이 **투기/투기과열지구**에 위치하며 **시세 3억**을 초과합니까?")
                 if is_speculative:
@@ -1028,7 +1027,6 @@ def run_favorite_analysis_app():
                     line_color="#1E3A8A", line_width=3, marker_size=8,
                     hovertemplate="<b>%{x}</b><br>매매가: %{y:,}만 원<extra></extra>"
                 )
-                # 🚀 핵심 해결 1: 차트 확대/이동 완전 고정 속성 적용
                 fig.update_layout(
                     height=350, 
                     margin=dict(l=0, r=0, t=40, b=0), 
@@ -1177,6 +1175,37 @@ def main():
             background-color: transparent !important;
             border: none !important;
         }
+
+        /* 🚀 10. [추가됨] 사이드바 관심단지 목록 모바일 세로 겹침 방지 및 삭제 버튼 크기 최적화 */
+        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+        }
+        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
+            width: 80% !important;
+            flex: 1 1 80% !important;
+            min-width: 0 !important;
+        }
+        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
+            width: 20% !important;
+            flex: 1 1 20% !important;
+            min-width: 0 !important;
+        }
+        /* 삭제 버튼(✖) 전용 디자인 (직관성 강화) */
+        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button {
+            background-color: #fef2f2 !important;
+            border: 1px solid #fecdd3 !important;
+            color: #e11d48 !important;
+            padding: 0 !important;
+            min-height: 2.8rem;
+        }
+        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button:hover {
+            background-color: #ffe4e6 !important;
+            border-color: #e11d48 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1198,17 +1227,26 @@ def main():
     """
     components.html(disable_keyboard_js, height=0, width=0)
 
-    # 🚀 [추가됨] 사이드바 관심단지 클릭 시 사이드바 자동 닫기 스크립트 주입
+    # 🚀 [업그레이드] 모바일/PC 모두 완벽히 작동하는 사이드바 닫기 스크립트
     if st.session_state.get('collapse_sidebar', False):
         collapse_js = """
         <script>
             const doc = window.parent.document;
             setTimeout(() => {
+                // 1. 공통: Esc 키보드 이벤트 강제 발생 (가장 확실한 닫기 방법)
+                doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+                
+                // 2. PC 환경: 명시적 닫기 버튼 클릭
                 const closeBtn = doc.querySelector('[data-testid="stSidebarCollapseButton"]');
-                if (closeBtn) {
-                    closeBtn.click();
-                }
-            }, 50);
+                if (closeBtn) closeBtn.click();
+                
+                // 3. 모바일 환경: 사이드바 바깥쪽 반투명 배경(Backdrop) 클릭
+                const overlays = Array.from(doc.querySelectorAll('div')).filter(div => {
+                    const style = window.getComputedStyle(div);
+                    return style.position === 'fixed' && style.backgroundColor.includes('rgba') && style.zIndex > 100;
+                });
+                if (overlays.length > 0) overlays[0].click();
+            }, 300); // UI 렌더링이 완전히 끝날 때까지 여유 있게 대기
         </script>
         """
         components.html(collapse_js, height=0, width=0)
@@ -1229,15 +1267,16 @@ def main():
             st.info("실거래가 탭에서 자주 보는 아파트를 등록해 보세요!")
         else:
             for idx, fav in enumerate(f_list):
-                c1, c2 = st.columns([85, 15]) 
+                # 🚀 핵심 해결 2: 모바일 겹침 방지를 위해 고정 비율 설정 (CSS와 연계됨)
+                c1, c2 = st.columns([4, 1]) 
                 with c1:
-                    if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", width="stretch"):
+                    # 🚀 모바일에서도 꽉 차게 use_container_width 적용
+                    if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", use_container_width=True):
                         st.session_state['auto_run_fav'] = fav
-                        # 🚀 핵심 해결 2: 사이드바 닫기 플래그 ON!
                         st.session_state['collapse_sidebar'] = True 
                         st.rerun()
                 with c2:
-                    if st.button("✖", key=f"fbtn_del_{idx}", width="stretch"):
+                    if st.button("✖", key=f"fbtn_del_{idx}", use_container_width=True):
                         new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
                         st.session_state['fav_apts'] = new_list
                         st.session_state['needs_ls_save'] = True
