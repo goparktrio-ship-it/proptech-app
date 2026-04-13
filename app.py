@@ -822,7 +822,7 @@ def run_loan_simulator_app():
             elif jeonse_homes == "1주택":
                 is_regulated_1home = st.checkbox("🚨 보유하신 기존 주택이 **규제지역(서울 등)**에 있습니까?")
                 if is_regulated_1home:
-                    st.warning("⚠️ **[최신 규제]** 1주택자 규제지역 보유 시 전세대출 이자가 DSR 산정에 엄격히 포함되어 한도가 대폭 축소될 수 있습니다.")
+                    st.warning("⚠️ **[최신 규제]** 1주택자 규제지역 보유 시 전세대출 이자가 DSR 산정에 엄격히 포함되어 한도가 대폭 축소될 수 파입니다.")
                     
                 is_speculative = st.checkbox("🚨 보유 주택이 **투기/투기과열지구**에 위치하며 **시세 3억**을 초과합니까?")
                 if is_speculative:
@@ -950,7 +950,7 @@ def run_loan_simulator_app():
         <ul style='margin-top: 0; padding-left: 20px;'>
             <li><b>조건/한도:</b> 보증금 상한(수도권 7억, 지방 5억 이하) / [HUG] 최대 4억 원 / [HF] 최대 2.22억 원</li>
             <li><b>장점:</b> [HUG] 대출과 동시에 전세보증금 반환보증보험이 무조건 100% 자동 가입되어 깡통전세 예방에 탁월합니다.</li>
-            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등) 따라 거절될 수 있습니다.</li>
+            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등)에 따라 거절될 수 있습니다.</li>
         </ul>
         <hr style='margin: 10px 0;'>
         <b>3. 🏢 SGI 서울보증보험 전세대출</b>
@@ -1028,7 +1028,14 @@ def run_favorite_analysis_app():
                     line_color="#1E3A8A", line_width=3, marker_size=8,
                     hovertemplate="<b>%{x}</b><br>매매가: %{y:,}만 원<extra></extra>"
                 )
-                fig.update_layout(height=350, margin=dict(l=0, r=0, t=40, b=0), xaxis=dict(title="", tickangle=-45), yaxis=dict(title=""))
+                # 🚀 핵심 해결 1: 차트 확대/이동 완전 고정 속성 적용
+                fig.update_layout(
+                    height=350, 
+                    margin=dict(l=0, r=0, t=40, b=0), 
+                    xaxis=dict(title="", tickangle=-45, fixedrange=True), 
+                    yaxis=dict(title="", fixedrange=True),
+                    dragmode=False
+                )
                 st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
                 
                 max_val = int(df_filtered['num_price'].max())
@@ -1172,8 +1179,8 @@ def main():
         }
     </style>
     """, unsafe_allow_html=True)
-    
-        # 🚀 [여기에 추가!] 셀렉트박스 터치 시 모바일 키보드 팝업 강제 차단 스크립트
+
+    # 셀렉트박스 터치 시 모바일 키보드 팝업 강제 차단 스크립트
     disable_keyboard_js = """
     <script>
         const doc = window.parent.document;
@@ -1191,6 +1198,22 @@ def main():
     """
     components.html(disable_keyboard_js, height=0, width=0)
 
+    # 🚀 [추가됨] 사이드바 관심단지 클릭 시 사이드바 자동 닫기 스크립트 주입
+    if st.session_state.get('collapse_sidebar', False):
+        collapse_js = """
+        <script>
+            const doc = window.parent.document;
+            setTimeout(() => {
+                const closeBtn = doc.querySelector('[data-testid="stSidebarCollapseButton"]');
+                if (closeBtn) {
+                    closeBtn.click();
+                }
+            }, 50);
+        </script>
+        """
+        components.html(collapse_js, height=0, width=0)
+        st.session_state['collapse_sidebar'] = False
+
     with st.sidebar:
         if os.path.exists(logo_path):
             st.image(logo_path, width="stretch")
@@ -1200,7 +1223,6 @@ def main():
         st.markdown("---")
         st.markdown("### ⭐ 내 관심 단지")
         
-        # 🚀 핵심 해결 5: 사이드바에서도 오직 st.session_state의 데이터만 읽어옴
         f_list = st.session_state['fav_apts']
             
         if not f_list:
@@ -1211,9 +1233,10 @@ def main():
                 with c1:
                     if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", width="stretch"):
                         st.session_state['auto_run_fav'] = fav
+                        # 🚀 핵심 해결 2: 사이드바 닫기 플래그 ON!
+                        st.session_state['collapse_sidebar'] = True 
                         st.rerun()
                 with c2:
-                    # 🚀 핵심 해결 3: 저장 예약 시스템으로 복구
                     if st.button("✖", key=f"fbtn_del_{idx}", width="stretch"):
                         new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
                         st.session_state['fav_apts'] = new_list
