@@ -43,6 +43,10 @@ if 'fav_apts' not in st.session_state:
 if 'ls_loaded' not in st.session_state:
     st.session_state['ls_loaded'] = False
 
+# [추가됨] 로컬 스토리지 저장을 지연 실행하기 위한 플래그
+if 'needs_ls_save' not in st.session_state:
+    st.session_state['needs_ls_save'] = False
+
 # 앱 실행 시 단 한 번만 브라우저 저장소를 읽어옴 (속도 지연으로 인한 덮어쓰기 충돌 완벽 방지)
 if HAS_LS and not st.session_state['ls_loaded']:
     stored_data = localS.getItem("fav_apts")
@@ -53,6 +57,28 @@ if HAS_LS and not st.session_state['ls_loaded']:
             except:
                 pass
         st.session_state['ls_loaded'] = True
+
+# [추가됨] 상태 변경 플래그가 켜졌을 때만 안정적으로 로컬 스토리지에 기록 (st.rerun 충돌 방지)
+if st.session_state['needs_ls_save']:
+    if HAS_LS:
+        localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
+    st.session_state['needs_ls_save'] = False
+
+# [추가됨] 버튼 클릭 시 실행되는 통합 콜백 함수
+def update_fav(action, item=None):
+    current_list = st.session_state.get('fav_apts', [])
+    if action == 'add' and item:
+        if len(current_list) < 10:
+            current_list.append(item)
+            st.toast(f"{item['apt']} 관심 등록 완료!", icon="⭐")
+        else:
+            st.toast("🚨 단지는 최대 10개까지만 등록 가능합니다!", icon="🚨")
+    elif action == 'remove' and item:
+        current_list = [f for f in current_list if not (f['apt'] == item['apt'] and f['dong'] == item['dong'])]
+        st.toast(f"{item['apt']} 관심 해제 완료!", icon="❌")
+        
+    st.session_state['fav_apts'] = current_list
+    st.session_state['needs_ls_save'] = True
 
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
@@ -278,26 +304,11 @@ def run_real_estate_app():
                 is_fav = any(f['apt'] == selected_apt and f['dong'] == selected_dong for f in fav_list)
                 _, btn_col = st.columns([4, 1])
                 with btn_col:
+                    target_item = {'gu': info['gu'], 'dong': selected_dong, 'apt': selected_apt}
                     if is_fav:
-                        if st.button("❌ 관심 해제", width="stretch"):
-                            # 🚀 핵심 해결 3: 메모리에 지우고, 로컬저장소에 즉시 덮어쓰기
-                            new_list = [f for f in fav_list if not (f['apt'] == selected_apt and f['dong'] == selected_dong)]
-                            st.session_state['fav_apts'] = new_list
-                            if HAS_LS: 
-                                localS.setItem("fav_apts", json.dumps(new_list))
-                            st.rerun()
+                        st.button("❌ 관심 해제", width="stretch", on_click=update_fav, args=('remove', target_item))
                     else:
-                        if st.button("⭐ 관심 등록", width="stretch"):
-                            if len(fav_list) >= 10:
-                                st.error("🚨 단지는 최대 10개까지만 등록 가능합니다!")
-                            else:
-                                # 🚀 핵심 해결 4: 메모리에 추가하고, 로컬저장소에 즉시 덮어쓰기
-                                new_list = fav_list + [{'gu': info['gu'], 'dong': selected_dong, 'apt': selected_apt}]
-                                st.session_state['fav_apts'] = new_list
-                                if HAS_LS: 
-                                    localS.setItem("fav_apts", json.dumps(new_list))
-                                st.toast(f"{selected_apt} 관심 등록 완료!", icon="⭐")
-                                st.rerun()
+                        st.button("⭐ 관심 등록", width="stretch", on_click=update_fav, args=('add', target_item))
 
             if price_col in df.columns:
                 valid_df = df.dropna(subset=[price_col])
@@ -1189,13 +1200,8 @@ def main():
                         st.session_state['auto_run_fav'] = fav
                         st.rerun()
                 with c2:
-                    if st.button("✖", key=f"fbtn_del_{idx}", width="stretch"):
-                        # 🚀 핵심 해결 6: 사이드바에서 지울 때도 메모리 지우고 로컬저장소 즉시 덮어쓰기
-                        new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
-                        st.session_state['fav_apts'] = new_list
-                        if HAS_LS: 
-                            localS.setItem("fav_apts", json.dumps(new_list))
-                        st.rerun()
+                    # 🚀 핵심 해결 6: 사이드바 삭제 버튼도 on_click 콜백 연결! (st.rerun 완전히 제거!)
+                    st.button("✖", key=f"fbtn_del_{idx}", width="stretch", on_click=update_fav, args=('remove', fav))
         
         st.markdown("---")
         st.markdown("### 📢 부동산/금융 최신 트렌드")
