@@ -23,14 +23,15 @@ try:
 except FileNotFoundError:
     img_icon = "🏢"
 
+# 🚀 핵심 해결 1: initial_sidebar_state를 "collapsed"로 변경하여 처음 접속 시 홈 화면이 바로 보이도록 수정
 st.set_page_config(
     page_title="집스탯 PRO V2.1",
     page_icon=img_icon,
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" 
 )
 
-# 🚀 핵심 해결 1: LocalStorage 초기화 및 세션 상태 중앙 통제
+# 🚀 핵심 해결 2: LocalStorage 초기화 및 세션 상태 중앙 통제
 try:
     from streamlit_local_storage import LocalStorage
     localS = LocalStorage()
@@ -364,7 +365,7 @@ def run_real_estate_app():
                             yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
                             dragmode=False 
                         ) 
-                        st.plotly_chart(fig2, width="stretch", config={'displayModeBar': False})
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
                         for i in range(min(5, len(merged))):
                             row = merged.iloc[i]
@@ -416,7 +417,8 @@ def run_real_estate_app():
                     title_font_size=16,
                     dragmode=False 
                 )
-                st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
+                # 🚀 핵심 해결 3: 최고가 분석 그래프에도 staticPlot(완전 고정) 속성 부여
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
                 
                 max_val = int(df_filtered['num_price'].max())
                 avg_val = int(df_filtered['num_price'].mean())
@@ -1034,7 +1036,8 @@ def run_favorite_analysis_app():
                     yaxis=dict(title="", fixedrange=True),
                     dragmode=False
                 )
-                st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
+                # 🚀 핵심 해결 3: 관심 단지 그래프에도 staticPlot 속성을 부여하여 스와이프/확대 원천 차단
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
                 
                 max_val = int(df_filtered['num_price'].max())
                 min_val = int(df_filtered['num_price'].min())
@@ -1176,7 +1179,7 @@ def main():
             border: none !important;
         }
 
-        /* 🚀 10. [추가됨] 사이드바 관심단지 목록 모바일 세로 겹침 방지 및 삭제 버튼 크기 최적화 */
+        /* 🚀 10. 사이드바 관심단지 목록 모바일 세로 겹침 방지 및 삭제 버튼 크기 최적화 */
         div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
@@ -1227,26 +1230,27 @@ def main():
     """
     components.html(disable_keyboard_js, height=0, width=0)
 
-    # 🚀 [업그레이드] 모바일/PC 모두 완벽히 작동하는 사이드바 닫기 스크립트
+    # 🚀 핵심 해결 3: 강력해진 사이드바 자동 닫기 스크립트 (모바일 배경 터치 + ESC 연타)
     if st.session_state.get('collapse_sidebar', False):
         collapse_js = """
         <script>
             const doc = window.parent.document;
-            setTimeout(() => {
-                // 1. 공통: Esc 키보드 이벤트 강제 발생 (가장 확실한 닫기 방법)
-                doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+            let attempts = 0;
+            const interval = setInterval(() => {
+                // 1. ESC 키보드 이벤트 강제 발생
+                doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true}));
                 
-                // 2. PC 환경: 명시적 닫기 버튼 클릭
+                // 2. 모바일 환경: 사이드바 바깥쪽 반투명 어두운 배경(Backdrop) 강제 터치
+                const overlay = doc.querySelector('[data-testid="stSidebar"] + div');
+                if (overlay) overlay.click();
+                
+                // 3. PC 환경: 명시적 닫기 버튼 클릭
                 const closeBtn = doc.querySelector('[data-testid="stSidebarCollapseButton"]');
                 if (closeBtn) closeBtn.click();
                 
-                // 3. 모바일 환경: 사이드바 바깥쪽 반투명 배경(Backdrop) 클릭
-                const overlays = Array.from(doc.querySelectorAll('div')).filter(div => {
-                    const style = window.getComputedStyle(div);
-                    return style.position === 'fixed' && style.backgroundColor.includes('rgba') && style.zIndex > 100;
-                });
-                if (overlays.length > 0) overlays[0].click();
-            }, 300); // UI 렌더링이 완전히 끝날 때까지 여유 있게 대기
+                attempts++;
+                if(attempts > 5) clearInterval(interval);
+            }, 100);
         </script>
         """
         components.html(collapse_js, height=0, width=0)
@@ -1267,10 +1271,8 @@ def main():
             st.info("실거래가 탭에서 자주 보는 아파트를 등록해 보세요!")
         else:
             for idx, fav in enumerate(f_list):
-                # 🚀 핵심 해결 2: 모바일 겹침 방지를 위해 고정 비율 설정 (CSS와 연계됨)
                 c1, c2 = st.columns([4, 1]) 
                 with c1:
-                    # 🚀 모바일에서도 꽉 차게 use_container_width 적용
                     if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", use_container_width=True):
                         st.session_state['auto_run_fav'] = fav
                         st.session_state['collapse_sidebar'] = True 
