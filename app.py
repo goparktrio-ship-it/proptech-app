@@ -30,14 +30,29 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 🚀 핵심 해결 1: LocalStorage 초기화 및 세션 상태 중앙 통제
 try:
     from streamlit_local_storage import LocalStorage
     localS = LocalStorage()
     HAS_LS = True
 except ImportError:
     HAS_LS = False
-    if 'fav_apts' not in st.session_state:
-        st.session_state['fav_apts'] = []
+
+if 'fav_apts' not in st.session_state:
+    st.session_state['fav_apts'] = []
+if 'ls_loaded' not in st.session_state:
+    st.session_state['ls_loaded'] = False
+
+# 앱 실행 시 단 한 번만 브라우저 저장소를 읽어옴 (속도 지연으로 인한 덮어쓰기 충돌 완벽 방지)
+if HAS_LS and not st.session_state['ls_loaded']:
+    stored_data = localS.getItem("fav_apts", key="init_load")
+    if stored_data is not None: 
+        if stored_data and stored_data != "null" and stored_data != "":
+            try:
+                st.session_state['fav_apts'] = json.loads(stored_data) if isinstance(stored_data, str) else stored_data
+            except:
+                pass
+        st.session_state['ls_loaded'] = True
 
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
@@ -63,7 +78,6 @@ if os.path.exists(title_icon_path):
 def run_home_app():
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🚀 애니메이션 로직 유지 (st.components.v1.html 사용 및 투명 처리)
     lottie_html = """
     <!DOCTYPE html>
     <html>
@@ -147,14 +161,8 @@ def run_home_app():
 def run_real_estate_app():
     st.subheader("🏠 실거래가/전세가율")
     
-    if HAS_LS:
-        fav_list = localS.getItem("fav_apts")
-        if fav_list is None or fav_list == "": fav_list = []
-        elif isinstance(fav_list, str):
-            try: fav_list = json.loads(fav_list)
-            except: fav_list = []
-    else:
-        fav_list = st.session_state['fav_apts']
+    # 🚀 핵심 해결 2: 안전한 session_state 값만 사용 (매번 브라우저를 읽지 않음)
+    fav_list = st.session_state['fav_apts']
         
     st.markdown("#### 🔍 검색 조건 설정")
     col1, col2 = st.columns(2)
@@ -272,18 +280,22 @@ def run_real_estate_app():
                 with btn_col:
                     if is_fav:
                         if st.button("❌ 관심 해제", width="stretch"):
+                            # 🚀 핵심 해결 3: 메모리에 지우고, 로컬저장소에 즉시 덮어쓰기
                             new_list = [f for f in fav_list if not (f['apt'] == selected_apt and f['dong'] == selected_dong)]
-                            if HAS_LS: localS.setItem("fav_apts", json.dumps(new_list))
-                            else: st.session_state['fav_apts'] = new_list
+                            st.session_state['fav_apts'] = new_list
+                            if HAS_LS: 
+                                localS.setItem("fav_apts", json.dumps(new_list))
                             st.rerun()
                     else:
                         if st.button("⭐ 관심 등록", width="stretch"):
                             if len(fav_list) >= 10:
                                 st.error("🚨 단지는 최대 10개까지만 등록 가능합니다!")
                             else:
+                                # 🚀 핵심 해결 4: 메모리에 추가하고, 로컬저장소에 즉시 덮어쓰기
                                 new_list = fav_list + [{'gu': info['gu'], 'dong': selected_dong, 'apt': selected_apt}]
-                                if HAS_LS: localS.setItem("fav_apts", json.dumps(new_list))
-                                else: st.session_state['fav_apts'] = new_list
+                                st.session_state['fav_apts'] = new_list
+                                if HAS_LS: 
+                                    localS.setItem("fav_apts", json.dumps(new_list))
                                 st.toast(f"{selected_apt} 관심 등록 완료!", icon="⭐")
                                 st.rerun()
 
@@ -1164,14 +1176,8 @@ def main():
         st.markdown("---")
         st.markdown("### ⭐ 내 관심 단지")
         
-        if HAS_LS:
-            f_list = localS.getItem("fav_apts")
-            if f_list is None or f_list == "": f_list = []
-            elif isinstance(f_list, str):
-                try: f_list = json.loads(f_list)
-                except: f_list = []
-        else:
-            f_list = st.session_state['fav_apts']
+        # 🚀 핵심 해결 5: 사이드바에서도 오직 st.session_state의 데이터만 읽어옴
+        f_list = st.session_state['fav_apts']
             
         if not f_list:
             st.info("실거래가 탭에서 자주 보는 아파트를 등록해 보세요!")
@@ -1184,9 +1190,11 @@ def main():
                         st.rerun()
                 with c2:
                     if st.button("✖", key=f"fbtn_del_{idx}", width="stretch"):
+                        # 🚀 핵심 해결 6: 사이드바에서 지울 때도 메모리 지우고 로컬저장소 즉시 덮어쓰기
                         new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
-                        if HAS_LS: localS.setItem("fav_apts", json.dumps(new_list))
-                        else: st.session_state['fav_apts'] = new_list
+                        st.session_state['fav_apts'] = new_list
+                        if HAS_LS: 
+                            localS.setItem("fav_apts", json.dumps(new_list))
                         st.rerun()
         
         st.markdown("---")
