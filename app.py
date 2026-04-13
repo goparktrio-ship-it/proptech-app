@@ -1203,39 +1203,39 @@ def main():
             border: none !important;
         }
 
-        /* 🚀 핵심 해결 1: 모바일 사이드바 강제 한줄 렌더링 (Streamlit 고집 꺾기) */
-        @media (max-width: 768px) {
-            div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] {
-                display: flex !important;
-                flex-direction: row !important;
-                flex-wrap: nowrap !important;
-                align-items: center !important;
-            }
-            div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) {
-                flex: 0 0 75% !important;
-                width: 75% !important;
-                min-width: 75% !important;
-            }
-            div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
-                flex: 0 0 20% !important;
-                width: 20% !important;
-                min-width: 20% !important;
-                margin-left: 5% !important;
-            }
+        /* 🚀 핵심 해결: 모바일 사이드바 관심단지 한 줄 고정 (픽셀 단위 강제 고정) */
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 6px !important;
+            align-items: center !important;
         }
-        
-        /* 삭제 버튼(✖) 전용 디자인 (직관성 강화 및 높이 조절) */
-        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button {
+        /* 첫 번째 단지명 버튼 영역: 남은 공간 모두 차지 */
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(1) {
+            width: calc(100% - 46px) !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        /* 두 번째 삭제 버튼 영역: 무조건 40px 크기 고정 */
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) {
+            width: 40px !important;
+            flex: 0 0 40px !important;
+            min-width: 40px !important;
+        }
+        /* 삭제 버튼 ✖ 디자인 완벽 최적화 */
+        [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
             color: #e11d48 !important;
             padding: 0 !important;
-            height: 100% !important;
-            min-height: 2.5rem !important;
-        }
-        div[data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) button:hover {
-            background-color: #ffe4e6 !important;
-            border-color: #e11d48 !important;
+            margin: 0 !important;
+            height: 42px !important; /* 버튼 높이 강제 맞춤 */
+            width: 40px !important;  /* 버튼 너비 강제 맞춤 */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
         }
     </style>
     """, unsafe_allow_html=True)
