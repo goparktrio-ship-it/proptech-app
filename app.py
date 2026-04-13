@@ -42,23 +42,7 @@ if 'fav_apts' not in st.session_state:
     st.session_state['fav_apts'] = []
 if 'ls_loaded' not in st.session_state:
     st.session_state['ls_loaded'] = False
-
 if 'needs_ls_save' not in st.session_state:
-    st.session_state['needs_ls_save'] = False
-
-if HAS_LS and not st.session_state['ls_loaded']:
-    stored_data = localS.getItem("fav_apts")
-    if stored_data is not None: 
-        if stored_data and stored_data != "null" and stored_data != "":
-            try:
-                st.session_state['fav_apts'] = json.loads(stored_data) if isinstance(stored_data, str) else stored_data
-            except:
-                pass
-        st.session_state['ls_loaded'] = True
-
-if st.session_state['needs_ls_save']:
-    if HAS_LS:
-        localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
     st.session_state['needs_ls_save'] = False
 
 if "DATA_API_KEY" in st.secrets:
@@ -392,7 +376,6 @@ def run_real_estate_app():
                 sel_area = st.selectbox("**3. 면적(㎡) 선택**", area_list)
                 df_filtered = df[df['num_area'] == sel_area].sort_values('조회년월')
 
-            # 🚀 최고가 분석 화면에서도 관심 단지 등록/해제 완벽 연동
             if sel_apt and sel_dong:
                 is_fav = any(f['apt'] == sel_apt and f['dong'] == sel_dong for f in fav_list)
                 _, btn_col = st.columns([4, 1])
@@ -1236,27 +1219,27 @@ def main():
         
         /* 단지명 버튼 영역 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(1) {
-            width: calc(100% - 45px) !important;
+            width: calc(100% - 40px) !important;
             flex: 1 1 auto !important;
         }
         
         /* 삭제 버튼 영역 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) {
-            width: 40px !important;
-            flex: 0 0 40px !important;
+            width: 35px !important;
+            flex: 0 0 35px !important;
         }
         
-        /* 삭제 버튼 ✖ 고정 크기 디자인 (정사각형 유지) */
+        /* 삭제 버튼 ✖ 완벽한 정사각형으로 고정 (use_container_width=False 적용됨) */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
             color: #e11d48 !important;
             padding: 0 !important;
             margin: 0 !important;
-            height: 38px !important; /* 높이 강제 고정 */
-            min-height: 38px !important; 
-            max-height: 38px !important; 
-            width: 38px !important; /* 너비 강제 고정 */
+            height: 35px !important; /* 높이 강제 고정 */
+            min-height: 35px !important; 
+            max-height: 35px !important; 
+            width: 35px !important; /* 너비 강제 고정 */
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -1284,7 +1267,6 @@ def main():
     st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
 
-    # 🚀 핵심 해결 1: 메인 화면(탭)을 무조건 먼저 렌더링 (사이드바 변화로 인한 탭 초기화 방지)
     if 'auto_run_fav' in st.session_state:
         run_favorite_analysis_app()
     else:
@@ -1299,7 +1281,9 @@ def main():
     st.markdown("---")
     st.caption("💡 본 대시보드는 실무 참고용이며, 정확한 세금 및 대출 한도는 전문가 및 금융기관과 상담하시기 바랍니다.")
 
-    # 🚀 핵심 해결 1: 메인 탭 렌더링이 완전히 끝난 후, 사이드바를 제일 마지막에 그림 (코드의 맨 뒤에 배치)
+    # ---------------------------------------------------------
+    # 🚀 사이드바 렌더링 영역
+    # ---------------------------------------------------------
     with st.sidebar:
         if os.path.exists(logo_path):
             st.image(logo_path, width="stretch")
@@ -1315,14 +1299,15 @@ def main():
             st.info("실거래가 탭에서 자주 보는 아파트를 등록해 보세요!")
         else:
             for idx, fav in enumerate(f_list):
-                c1, c2 = st.columns([4, 1]) 
+                c1, c2 = st.columns([8, 2]) 
                 with c1:
                     if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", use_container_width=True):
                         st.session_state['auto_run_fav'] = fav
                         st.session_state['collapse_sidebar'] = True 
                         st.rerun()
                 with c2:
-                    if st.button("✖", key=f"fbtn_del_{idx}", use_container_width=True):
+                    # 🚀 삭제 버튼 흉측하게 늘어나는 문제 해결 (use_container_width=False 적용)
+                    if st.button("✖", key=f"fbtn_del_{idx}"):
                         new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
                         st.session_state['fav_apts'] = new_list
                         st.session_state['needs_ls_save'] = True
@@ -1343,24 +1328,34 @@ def main():
             <div class="news-date">📈 [2026.04 1주차] 주간 아파트 동향</div>
             전국 매매가(+0.04%), 전세가(+0.09%) 동반 상승. 서울·수도권 역세권 단지 중심으로 매수심리 유지 중.
         </div>
-        <div class="news-box bg-gray">
-            <div class="news-date">📌 [2026 최신] 디딤돌대출 규제</div>
-            수도권 아파트 매수 시 최우선변제금(방공제) <b>약 4,800만 원 대출 한도 차감</b> 의무화.
-        </div>
         """, unsafe_allow_html=True)
         
         st.markdown("---")
         
         total, daily = update_and_get_visitor_count()
         st.markdown(f"<div style='text-align: center; color: #888; font-size: 13px;'>👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {total} 명</div>", unsafe_allow_html=True)
-        
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("""
-        <div style="text-align: center; color: #aaaaaa; font-size: 11px;">
-            © 2026 ZipStat PRO.<br>All rights reserved.<br><br>
-            👨‍💻 Developed by <b>[sweetourzip@naver.com]</b>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<br><br><div style='text-align: center; color: #aaaaaa; font-size: 11px;'>© 2026 ZipStat PRO.<br>All rights reserved.<br><br>👨‍💻 Developed by <b>[sweetourzip@naver.com]</b></div>", unsafe_allow_html=True)
+
+    # ---------------------------------------------------------
+    # 🚀 핵심 해결 1: 눈에 보이지 않는 저장소 컴포넌트들을 맨 아래 '지하 창고'로 격리
+    #    (이 부분 때문에 메인 화면 탭 순서가 꼬여서 홈으로 튕기는 버그 발생했었음)
+    # ---------------------------------------------------------
+    with st.container():
+        if HAS_LS and not st.session_state['ls_loaded']:
+            stored_data = localS.getItem("fav_apts")
+            if stored_data is not None: 
+                if stored_data and stored_data != "null" and stored_data != "":
+                    try:
+                        st.session_state['fav_apts'] = json.loads(stored_data) if isinstance(stored_data, str) else stored_data
+                    except:
+                        pass
+                st.session_state['ls_loaded'] = True
+                st.rerun() # 데이터를 불러온 후 즉시 화면에 반영
+
+        if st.session_state.get('needs_ls_save', False):
+            if HAS_LS:
+                localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
+            st.session_state['needs_ls_save'] = False
 
 if __name__ == "__main__":
     main()
