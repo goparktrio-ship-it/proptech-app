@@ -695,7 +695,7 @@ def run_loan_simulator_app():
             st.markdown("#### 🏢 1. 매수 자금 및 조건")
             prop_price = st.number_input("**매수할 주택 가격 (실제 매매가, 만원)**", min_value=1000, value=80000, step=1000)
             
-            with st.expander("💡 대출 한도(LTV)는 실제 매매가와 <b>KB시세 중 낮은 금액</b>을 기준 "):
+            with st.expander("💡 대출 한도(LTV)는 실제 매매가와 KB시세 중 낮은 금액을 기준 "):
                 st.markdown(f"{DETAIL_STYLE}2025.10.15 규제로 <b>15억이하 - 6억, 15억초과 ~ 25억이하 - 4억, 25억초과- 2억</b></div>", unsafe_allow_html=True)
                 
             use_kb_price = st.checkbox("☑️ KB시세 직접 입력 (대출 한도 산정 기준)")
