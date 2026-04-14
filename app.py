@@ -113,7 +113,7 @@ def run_home_app():
         <div class="feature-card">
             <div class="feature-icon">🔍</div>
             <div class="feature-title">1. 실거래가 및 전세가율 분석</div>
-            <div class="feature-desc">과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 소액 투자를 위한 전세가율(실투자금) 상위 아파트를 클릭 한 번으로 뽑아냅니다.</div>
+            <div class="feature-desc">매매 실거래가, 전세가 및 과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 전세가율(실투자금)상위 아파트를 클릭 한 번으로!!!</div>
         </div>
         """, unsafe_allow_html=True)
     with r1_col2:
@@ -121,7 +121,7 @@ def run_home_app():
         <div class="feature-card">
             <div class="feature-icon">💰</div>
             <div class="feature-title">2. 취득세 및 연간 보유세 계산</div>
-            <div class="feature-desc">2026년 최신 세법 적용! 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출합니다.</div>
+            <div class="feature-desc">2026년 최신 세법 적용! 규제지역에 따른 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출!!!</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -131,7 +131,7 @@ def run_home_app():
         <div class="feature-card">
             <div class="feature-icon">📈</div>
             <div class="feature-title">3. 양도소득세 정밀 계산</div>
-            <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부를 정확히 계산합니다.</div>
+            <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부, 장기보유특별공제까지 계산!!!</div>
         </div>
         """, unsafe_allow_html=True)
     with r2_col2:
@@ -139,7 +139,7 @@ def run_home_app():
         <div class="feature-card">
             <div class="feature-icon">🏦</div>
             <div class="feature-title">4. 맞춤형 자금조달 및 대출 컨설팅</div>
-            <div class="feature-desc">신생아/디딤돌 정책자금 대상 여부 확인은 물론, 최신 4월 대출 규제를 반영한 스트레스 DSR 최대한도를 알아봅니다.</div>
+            <div class="feature-desc">최신 규제를 적용한 스트레스 DSR 주택담보대출 한도와 전세자금대출 및 정책자금 대상 여부 확인!!!</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -547,7 +547,7 @@ def run_tax_app():
 @st.fragment 
 def run_capital_gains_tax_app():
     st.subheader("📈 양도소득세 계산")
-    st.info("📌 **매수/매도 시점의 규제지역 여부**를 자동으로 판독하여 거주요건 및 중과 여부를 체크합니다.")
+    st.info("📌 **매수/매도 시점의 규제지역 여부**를 자동으로 판독하여 거주요건 및 중과 여부를 체크")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -683,7 +683,7 @@ def run_capital_gains_tax_app():
 def run_loan_simulator_app():
     st.subheader("🏦 대출 및 자금조달")
     
-    st.error("🚨 **[긴급 공지] 2026. 4. 1. 가계대출 관리방안 반영:** 다주택자의 수도권 및 규제지역 내 주택담보대출 만기 연장이 4월 17일부터 원칙적으로 금지됩니다.")
+    st.error("🚨 **[긴급 공지] 2026. 4. 1. 가계대출 관리방안 반영:** 다주택자의 수도권 및 규제지역 내 주택담보대출 만기 연장이 4월 17일부터 원칙적으로 금지")
     
     loan_type = st.radio("어떤 대출을 알아보시나요?", ["🏠 주택담보대출 (매매용)", "🔑 전세자금대출 (임차용)"], horizontal=True)
     st.markdown("---")
@@ -695,8 +695,8 @@ def run_loan_simulator_app():
             st.markdown("#### 🏢 1. 매수 자금 및 조건")
             prop_price = st.number_input("**매수할 주택 가격 (실제 매매가, 만원)**", min_value=1000, value=80000, step=1000)
             
-            with st.expander("💡 대출 한도는 '매매가'가 아닌 'KB시세' 기준입니다."):
-                st.markdown(f"{DETAIL_STYLE}대출 한도(LTV) 산정 시 실제 매매가와 <b>KB시세 중 낮은 금액</b>을 기준으로 합니다.</div>", unsafe_allow_html=True)
+            with st.expander("💡 대출 한도(LTV)는 실제 매매가와 <b>KB시세 중 낮은 금액</b>을 기준 "):
+                st.markdown(f"{DETAIL_STYLE}2025.10.15 규제로 <b>15억이하 - 6억, 15억초과 ~ 25억이하 - 4억, 25억초과- 2억</b></div>", unsafe_allow_html=True)
                 
             use_kb_price = st.checkbox("☑️ KB시세 직접 입력 (대출 한도 산정 기준)")
             ltv_base_price = prop_price
@@ -940,32 +940,32 @@ def run_loan_simulator_app():
             <li><b>주의:</b> 수도권 아파트 매수 시 방공제 약 4,800만 원 차감</li>
         </ul>
         <hr style='margin: 10px 0;'>
-        <b>3. 공통 요건:</b> 가구당 순자산 4.69억 원 이하
+        <b>3. 공통 요건:</b> 가구당 순자산 4.69억원 이하
         </div>""", unsafe_allow_html=True)
 
     with st.expander("🔍 주요 전세자금대출(버팀목/HUG/SGI) 핵심 요약", expanded=False):
         st.markdown(f"""{DETAIL_STYLE}
-        <b>💡 공통 한도 유의사항:</b> 대부분의 전세대출은 <b>전세보증금의 최대 80%</b>까지만 대출이 가능합니다. (단, 신혼부부나 청년 등 일부 상품은 조건에 따라 90%까지 가능)
+        <b>💡 공통 한도 유의사항:</b> 대부분의 전세대출은 <b>전세보증금의 최대 80%</b>까지만 대출이 가능 (단, 신혼부부나 청년 등 일부 상품은 조건에 따라 90%까지 가능)
         <hr style='margin: 10px 0;'>
         <b>1. 🏛️ 버팀목 전세자금대출 (정부기금)</b>
         <ul style='margin-top: 0; padding-left: 20px;'>
             <li><b>조건/한도:</b> 무주택자 / 보증금 상한(수도권 3억, 지방 2억 이하) / 최대 한도 1.2억(지방 8천만)</li>
-            <li><b>장점:</b> 시중 은행 전세대출 대비 금리가 가장 저렴하여 이자 부담이 확연히 적습니다. (1~2%대)</li>
-            <li><b>단점:</b> 보증금 상한선과 대출 한도가 낮아 고가 전세 아파트에는 활용이 어렵습니다.</li>
+            <li><b>장점:</b> 시중 은행 전세대출 대비 금리가 가장 저렴 (1~2%대)</li>
+            <li><b>단점:</b> 보증금 상한선과 대출 한도가 낮아 고가 전세 아파트에는 불가능</li>
         </ul>
         <hr style='margin: 10px 0;'>
         <b>2. 🛡️ HUG 안심전세대출 / HF 일반전세대출</b>
         <ul style='margin-top: 0; padding-left: 20px;'>
-            <li><b>조건/한도:</b> 보증금 상한(수도권 7억, 지방 5억 이하) / [HUG] 최대 4억 원 / [HF] 최대 2.22억 원</li>
-            <li><b>장점:</b> [HUG] 대출과 동시에 전세보증금 반환보증보험이 무조건 100% 자동 가입되어 깡통전세 예방에 탁월합니다.</li>
-            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등)에 따라 거절될 수 있습니다.</li>
+            <li><b>조건/한도:</b> 보증금 상한(수도권 7억, 지방 5억 이하) / [HUG] 최대 4억원 / [HF] 최대 2.22억원</li>
+            <li><b>장점:</b> [HUG] 대출과 동시에 전세보증금 반환보증보험이 100% 자동 가입되어 깡통전세 예방 가능</li>
+            <li><b>단점:</b> 1주택자의 경우 한도가 2억 원으로 제한되거나, 보유 주택 요건(규제지역 등)에 따라 거절됨</li>
         </ul>
         <hr style='margin: 10px 0;'>
         <b>3. 🏢 SGI 서울보증보험 전세대출</b>
         <ul style='margin-top: 0; padding-left: 20px;'>
             <li><b>조건/한도:</b> 보증금 상한 <b>제한 없음</b> / 최대 5억 원 (1주택자는 3억 원)</li>
-            <li><b>장점:</b> 보증금 제한이 없어 수도권 7억 원 초과 고가 아파트 전세에 폭넓게 활용 가능합니다.</li>
-            <li><b>단점:</b> 타 기관 상품 대비 보증료율과 은행 적용 금리가 상대적으로 높은 편입니다.</li>
+            <li><b>장점:</b> 보증금 제한이 없어 수도권 7억원 초과 고가 아파트 전세에 폭넓게 활용 가능</li>
+            <li><b>단점:</b> 타 기관 상품 대비 보증료율과 은행 적용 금리가 상대적으로 높음</li>
         </ul>
         </div>""", unsafe_allow_html=True)
 
