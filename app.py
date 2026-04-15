@@ -7,7 +7,7 @@ from PIL import Image
 import concurrent.futures
 import plotly.express as px  
 import streamlit.components.v1 as components 
-from datetime import datetime # 🚀 [추가] 실시간 날짜를 가져오기 위한 모듈
+from datetime import datetime 
 
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
 from engine import *
@@ -39,12 +39,20 @@ try:
 except ImportError:
     HAS_LS = False
 
+# 🚀 [세션 상태 추가] 관심 단지 외에 방문자 수 백업용 변수 추가
 if 'fav_apts' not in st.session_state:
     st.session_state['fav_apts'] = []
 if 'ls_loaded' not in st.session_state:
     st.session_state['ls_loaded'] = False
 if 'needs_ls_save' not in st.session_state:
     st.session_state['needs_ls_save'] = False
+
+if 'max_total_visitor' not in st.session_state:
+    st.session_state['max_total_visitor'] = 0
+if 'ls_visitor_loaded' not in st.session_state:
+    st.session_state['ls_visitor_loaded'] = False
+if 'needs_ls_visitor_save' not in st.session_state:
+    st.session_state['needs_ls_visitor_save'] = False
 
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
@@ -161,7 +169,6 @@ def run_real_estate_app():
         selected_gu = st.selectbox("**지역구 선택**", SORTED_GU_LIST)
         lawd_cd = GU_CODES[selected_gu]
     with col2:
-        # 🚀 [수정] 기본값을 실시간 현재 달(YYYYMM)로 설정
         current_ym = datetime.now().strftime("%Y%m")
         deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value=current_ym)
         
@@ -976,26 +983,22 @@ def run_loan_simulator_app():
 # 6. 관심 단지 1년 추이 전용 오버레이 화면
 # ==========================================
 def run_favorite_analysis_app():
-    # 🚀 핵심 해결 2: 모바일 X버튼 및 배경 터치 강제 스크립트 (화면 진입 시 즉각 실행)
     if st.session_state.get('collapse_sidebar', False):
         close_js = """
         <script>
             setTimeout(function() {
                 const doc = window.parent.document;
                 
-                // 1. 모바일 닫기 버튼 (X 아이콘) 강제 클릭
                 const closeBtn = doc.querySelector('button[kind="headerNoPadding"]');
                 if (closeBtn) closeBtn.click();
                 
-                // 2. 반투명 배경(Backdrop) 강제 클릭
                 const sidebar = doc.querySelector('[data-testid="stSidebar"]');
                 if (sidebar && sidebar.nextElementSibling) {
                     sidebar.nextElementSibling.click();
                 }
                 
-                // 3. PC를 위한 ESC 키보드 이벤트
                 doc.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', keyCode: 27, bubbles: true}));
-            }, 150); // 모바일 브라우저 렌더링 속도 고려 (너무 빠르면 작동 안 함)
+            }, 150); 
         </script>
         """
         components.html(close_js, height=0, width=0)
@@ -1003,7 +1006,6 @@ def run_favorite_analysis_app():
 
     fav = st.session_state['auto_run_fav']
     
-    # 🚀 수정: 정밀분석 문구 제거 및 설명글 축소
     st.markdown(f"""
     <div style="background-color:#EFF6FF; padding:20px; border-radius:15px; border-left: 10px solid #1E3A8A; margin-bottom:20px;">
         <h2 style="color:#1E3A8A; margin:0;">⭐ {fav['apt']}</h2>
@@ -1017,7 +1019,6 @@ def run_favorite_analysis_app():
         
     lawd_cd = GU_CODES[fav['gu']]
     
-    # 🚀 [수정] 하드코딩 제거 및 실시간 현재 년월 동적 할당
     deal_ym = datetime.now().strftime("%Y%m") 
     
     months_to_fetch = get_last_12_months(deal_ym)
@@ -1220,32 +1221,29 @@ def main():
             flex-direction: row !important;
             flex-wrap: nowrap !important;
             gap: 5px !important;
-            align-items: center !important; /* 버튼이 길게 찢어지는 것을 완벽 차단! */
+            align-items: center !important; 
         }
         
-        /* 단지명 버튼 영역 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(1) {
             width: calc(100% - 40px) !important;
             flex: 1 1 auto !important;
         }
         
-        /* 삭제 버튼 영역 */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) {
             width: 35px !important;
             flex: 0 0 35px !important;
         }
         
-        /* 삭제 버튼 ✖ 완벽한 정사각형으로 고정 (use_container_width=False 적용됨) */
         [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(2) button {
             background-color: #fef2f2 !important;
             border: 1px solid #fecdd3 !important;
             color: #e11d48 !important;
             padding: 0 !important;
             margin: 0 !important;
-            height: 35px !important; /* 높이 강제 고정 */
+            height: 35px !important; 
             min-height: 35px !important; 
             max-height: 35px !important; 
-            width: 35px !important; /* 너비 강제 고정 */
+            width: 35px !important; 
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -1312,7 +1310,6 @@ def main():
                         st.session_state['collapse_sidebar'] = True 
                         st.rerun()
                 with c2:
-                    # 🚀 삭제 버튼 흉측하게 늘어나는 문제 해결 (use_container_width=False 적용)
                     if st.button("✖", key=f"fbtn_del_{idx}"):
                         new_list = [f for f in f_list if not (f['apt'] == fav['apt'] and f['dong'] == fav['dong'])]
                         st.session_state['fav_apts'] = new_list
@@ -1342,15 +1339,26 @@ def main():
         
         st.markdown("---")
         
-        total, daily = update_and_get_visitor_count()
-        st.markdown(f"<div style='text-align: center; color: #888; font-size: 13px;'>👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {total} 명</div>", unsafe_allow_html=True)
+        # 🚀 [수정] 방문자 수 로컬 스토리지 비교 로직 적용
+        server_total, daily = update_and_get_visitor_count()
+        local_max = st.session_state.get('max_total_visitor', 0)
+        
+        # 서버에서 받아온 값과 로컬에 저장되어 있던 값 중 더 큰 숫자를 화면에 표시
+        display_total = max(server_total, local_max)
+        
+        # 화면에 보여줄 값이 로컬 저장된 값보다 크면 갱신 예약
+        if display_total > local_max:
+            st.session_state['max_total_visitor'] = display_total
+            st.session_state['needs_ls_visitor_save'] = True
+
+        st.markdown(f"<div style='text-align: center; color: #888; font-size: 13px;'>👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {display_total} 명</div>", unsafe_allow_html=True)
         st.markdown("<br><br><div style='text-align: center; color: #aaaaaa; font-size: 11px;'>© 2026 ZipStat PRO.<br>All rights reserved.<br><br>👨‍💻 Developed by <b>[sweetourzip@naver.com]</b></div>", unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # 🚀 핵심 해결 1: 눈에 보이지 않는 저장소 컴포넌트들을 맨 아래 '지하 창고'로 격리
-    #    (이 부분 때문에 메인 화면 탭 순서가 꼬여서 홈으로 튕기는 버그 발생했었음)
+    # 🚀 저장소 컴포넌트 처리 영역
     # ---------------------------------------------------------
     with st.container():
+        # 1. 관심 단지 로드
         if HAS_LS and not st.session_state['ls_loaded']:
             stored_data = localS.getItem("fav_apts")
             if stored_data is not None: 
@@ -1360,12 +1368,30 @@ def main():
                     except:
                         pass
                 st.session_state['ls_loaded'] = True
-                st.rerun() # 데이터를 불러온 후 즉시 화면에 반영
+                st.rerun() 
+        
+        # 🚀 2. 방문자 수 로드 (추가)
+        if HAS_LS and not st.session_state['ls_visitor_loaded']:
+            stored_visitor = localS.getItem("max_total_visitor")
+            if stored_visitor is not None:
+                try:
+                    st.session_state['max_total_visitor'] = int(stored_visitor)
+                except:
+                    pass
+                st.session_state['ls_visitor_loaded'] = True
+                st.rerun()
 
+        # 3. 관심 단지 저장
         if st.session_state.get('needs_ls_save', False):
             if HAS_LS:
                 localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
             st.session_state['needs_ls_save'] = False
+            
+        # 🚀 4. 방문자 수 저장 (추가)
+        if st.session_state.get('needs_ls_visitor_save', False):
+            if HAS_LS:
+                localS.setItem("max_total_visitor", str(st.session_state['max_total_visitor']))
+            st.session_state['needs_ls_visitor_save'] = False
 
 if __name__ == "__main__":
     main()
