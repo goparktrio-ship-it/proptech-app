@@ -7,6 +7,7 @@ from PIL import Image
 import concurrent.futures
 import plotly.express as px  
 import streamlit.components.v1 as components 
+from datetime import datetime # 🚀 [추가] 실시간 날짜를 가져오기 위한 모듈
 
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
 from engine import *
@@ -160,7 +161,9 @@ def run_real_estate_app():
         selected_gu = st.selectbox("**지역구 선택**", SORTED_GU_LIST)
         lawd_cd = GU_CODES[selected_gu]
     with col2:
-        deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value="202602")
+        # 🚀 [수정] 기본값을 실시간 현재 달(YYYYMM)로 설정
+        current_ym = datetime.now().strftime("%Y%m")
+        deal_ym = st.text_input("**조회 년월 (YYYYMM)**", value=current_ym)
         
     category = st.radio("**분석 모드 선택**", ["매매 실거래", "전월세 실거래", "전세가율(실투자금) 분석", "🚀 1년 내 최고가 분석"], horizontal=True)
     submit_btn = st.button("데이터 분석 시작 🚀", width="stretch", type="primary")
@@ -1013,7 +1016,9 @@ def run_favorite_analysis_app():
         st.rerun()
         
     lawd_cd = GU_CODES[fav['gu']]
-    deal_ym = "202602" 
+    
+    # 🚀 [수정] 하드코딩 제거 및 실시간 현재 년월 동적 할당
+    deal_ym = datetime.now().strftime("%Y%m") 
     
     months_to_fetch = get_last_12_months(deal_ym)
     all_data = []
