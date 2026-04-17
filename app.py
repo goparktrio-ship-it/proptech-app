@@ -6,7 +6,6 @@ import streamlit as st
 from PIL import Image
 import concurrent.futures
 import plotly.express as px  
-import streamlit.components.v1 as components 
 from datetime import datetime 
 
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
@@ -78,30 +77,14 @@ if os.path.exists(title_icon_path):
 def run_home_app():
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # st.components.v1.html 대신 최신 st.html 사용
     lottie_html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-        <style>
-            html, body {
-                margin: 0;
-                padding: 0;
-                background-color: transparent !important;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                overflow: hidden;
-            }
-        </style>
-    </head>
-    <body>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <div style="display: flex; justify-content: center; align-items: center; height: 260px;">
         <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_w6dptksf.json" background="transparent" speed="1" style="width: 250px; height: 250px;" loop autoplay></lottie-player>
-    </body>
-    </html>
+    </div>
     """
-    components.html(lottie_html, height=260)
+    st.html(lottie_html)
 
     st.markdown("""
     <div style="text-align: center; padding: 0 0 40px 0;">
@@ -346,7 +329,8 @@ def run_real_estate_app():
                             color_continuous_scale="Reds", 
                             template="plotly_white"
                         )
-                        fig2.update_traces(texttemplate='%{text}%', textposition='outside')
+                        # 🔥 툴팁 비활성화 적용
+                        fig2.update_traces(texttemplate='%{text}%', textposition='outside', hovertemplate=None, hoverinfo='skip')
                         fig2.update_layout(
                             height=350, 
                             margin=dict(l=0, r=0, t=40, b=0), 
@@ -355,7 +339,8 @@ def run_real_estate_app():
                             yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
                             dragmode=False 
                         ) 
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                        # 🚀 use_container_width=True를 width="stretch"로 교체
+                        st.plotly_chart(fig2, width="stretch", config={'displayModeBar': False})
 
                         for i in range(min(5, len(merged))):
                             row = merged.iloc[i]
@@ -429,7 +414,8 @@ def run_real_estate_app():
                     dragmode=False,
                     hovermode='x'
                 )
-                st.plotly_chart(fig, use_container_width=True, config={
+                # 🚀 use_container_width=True를 width="stretch"로 교체
+                st.plotly_chart(fig, width="stretch", config={
                     'displayModeBar': False, 
                     'scrollZoom': False,
                     'doubleClick': False,
@@ -637,6 +623,7 @@ def run_capital_gains_tax_app():
         is_joint_sell = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**", key="cgt_joint")
         is_suspension = st.checkbox("💡 **다주택자 양도세 중과 유예 적용** (2026. 5. 9. 양도분까지)")
 
+    # 🚀 1. 기존 '계산하기' 버튼 및 고정 결과 화면 원상 복구
     st.markdown("---")
     if st.button("양도세 정밀 계산하기 🚀", width="stretch", key="btn_cgt", type="primary"):
         st.toast("✅ 양도소득세 산출 완료!", icon="📈") 
@@ -666,7 +653,87 @@ def run_capital_gains_tax_app():
             <h2 style="margin: 0; color: #dc2626; font-size: 2.5rem;">{int(total_tax):,} 원</h2>
         </div>
         """, unsafe_allow_html=True)
+
+    # 🚀 2. 실시간 시뮬레이터(샌드박스) 섹션
+    st.markdown("---")
+    st.markdown("### 🎮 실시간 양도세 시뮬레이터 (Sandbox)")
+    st.caption("금액, 보유 기간뿐만 아니라 **규제지역 여부, 주택 수, 공동명의** 조건도 자유롭게 변경하며 세금 변화를 체감해 보세요.")
+
+    with st.container(border=True):
+        s_col1, s_col2 = st.columns([1, 2])
         
+        with s_col1:
+            st.markdown("**[시뮬레이션 변수 조절]**")
+            # 매도가, 매수가 범위를 50억(500,000만원)까지 대폭 확장
+            sim_sell = st.slider("매도가 (만원)", min_value=1000, max_value=500000, value=int(sell_price), step=1000, key="sim_sell")
+            sim_buy = st.slider("매수가 (만원)", min_value=1000, max_value=500000, value=int(buy_price), step=1000, key="sim_buy")
+            sim_hold = st.slider("보유 기간 (년)", min_value=0.0, max_value=20.0, value=float(holding_period), step=0.5, key="sim_hold")
+            
+            # 거주 기간은 보유 기간을 넘을 수 없도록 동적 최대값 설정
+            max_res = max(0.5, float(sim_hold))
+            default_res = min(float(residence_period), max_res)
+            sim_res = st.slider("거주 기간 (년)", min_value=0.0, max_value=max_res, value=default_res, step=0.5, key="sim_res")
+            
+            st.markdown("**[추가 조건 조절]**")
+            sim_homes = st.selectbox("주택 수", ["1주택", "일시적 2주택", "2주택", "3주택 이상"], index=["1주택", "일시적 2주택", "2주택", "3주택 이상"].index(homes_count_sell), key="sim_homes")
+            sim_joint = st.checkbox("부부 공동명의", value=is_joint_sell, key="sim_joint")
+            
+            c_reg1, c_reg2 = st.columns(2)
+            sim_reg_buy = c_reg1.checkbox("매수 당시 규제", value=is_reg_buy, key="sim_reg_buy")
+            sim_reg_sell = c_reg2.checkbox("매도 당시 규제", value=is_reg_sell, key="sim_reg_sell")
+
+        with s_col2:
+            # 실시간 계산 함수 호출
+            gain_s, _, deduct_amt_s, tax_base_s, _, total_tax_s, _, d_rate_s = calculate_capital_gains_tax(
+                sim_sell, sim_buy, expenses, sim_hold, sim_res, sim_homes, sim_reg_buy, sim_reg_sell, is_suspension, sim_joint
+            )
+            
+            # 🚀 너무 커서 차트를 압도하던 '총 양도차익'을 그래프에서 빼고 위에 텍스트로 따로 배치
+            st.markdown(f"##### 💰 예상 총 양도차익: **<span style='color:#ea580c;'>{int(gain_s/10000):,}</span>** 만 원", unsafe_allow_html=True)
+            st.caption("차트 스케일을 위해 '양도차익'은 상단에 표시하고, 아래 그래프에는 차감되는 세부 항목들을 시각화했습니다.")
+            
+            # 그래프를 위해 필요경비, 기본공제 변환 (원 단위)
+            expenses_won = expenses * 10000
+            basic_ded_won = 5000000 if sim_joint else 2500000
+            
+            x_labels = ["필요경비", "기본공제", "장기보유특별공제", "과세표준", "최종 납부세액"]
+            y_values = [expenses_won, basic_ded_won, abs(deduct_amt_s), tax_base_s, total_tax_s]
+            text_values = [
+                f"{int(expenses_won/10000):,}만", 
+                f"{int(basic_ded_won/10000):,}만", 
+                f"{int(abs(deduct_amt_s)/10000):,}만", 
+                f"{int(tax_base_s/10000):,}만", 
+                f"{int(total_tax_s/10000):,}만"
+            ]
+            
+            # 실시간 업데이트되는 Plotly 차트 렌더링
+            fig = px.bar(
+                x=x_labels,
+                y=y_values,
+                text=text_values,
+                color=x_labels,
+                color_discrete_sequence=["#94a3b8", "#a855f7", "#10b981", "#3b82f6", "#dc2626"] # 항목별 직관적인 색상 배치
+            )
+            
+            # 🔥 툴팁 비활성화 적용
+            fig.update_traces(textposition='outside', textfont_size=13, hovertemplate=None, hoverinfo='skip')
+            
+            # 동적인 Y축 설정 (차트가 이쁘게 그려지도록 여백 확보)
+            max_y = max(y_values) if max(y_values) > 0 else 10000
+            
+            fig.update_layout(
+                title=f"💡 [시뮬레이션] 예상 양도세: <span style='color:#dc2626; font-size:20px;'>{int(total_tax_s):,} 원</span> (장특공제 {d_rate_s*100:.0f}%)",
+                showlegend=False,
+                height=300,
+                yaxis_title="",
+                xaxis_title="",
+                yaxis=dict(showticklabels=False, range=[0, max_y * 1.3]), # 라벨이 잘리지 않도록 공간 확보
+                margin=dict(t=50, b=20, l=0, r=0),
+                plot_bgcolor="rgba(0,0,0,0)"
+            )
+            # 🚀 use_container_width=True를 width="stretch"로 교체
+            st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
+
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📝 1세대 1주택 비과세 핵심 요건"):
         st.markdown(f"""{DETAIL_STYLE}
@@ -1001,7 +1068,8 @@ def run_favorite_analysis_app():
             }, 150); 
         </script>
         """
-        components.html(close_js, height=0, width=0)
+        # st.components.v1.html 대신 최신 st.html 사용
+        st.html(close_js)
         st.session_state['collapse_sidebar'] = False
 
     fav = st.session_state['auto_run_fav']
@@ -1075,7 +1143,8 @@ def run_favorite_analysis_app():
                     yaxis=dict(title="", fixedrange=True),
                     dragmode=False
                 )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+                # 🚀 use_container_width=True를 width="stretch"로 교체
+                st.plotly_chart(fig, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
                 
                 max_val = int(df_filtered['num_price'].max())
                 min_val = int(df_filtered['num_price'].min())
@@ -1266,7 +1335,8 @@ def main():
         observer.observe(doc.body, { childList: true, subtree: true });
     </script>
     """
-    components.html(disable_keyboard_js, height=0, width=0)
+    # st.components.v1.html 대신 최신 st.html 사용
+    st.html(disable_keyboard_js)
 
     st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
@@ -1305,7 +1375,8 @@ def main():
             for idx, fav in enumerate(f_list):
                 c1, c2 = st.columns([8, 2]) 
                 with c1:
-                    if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", use_container_width=True):
+                    # 🚀 use_container_width=True를 width="stretch"로 교체
+                    if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", width="stretch"):
                         st.session_state['auto_run_fav'] = fav
                         st.session_state['collapse_sidebar'] = True 
                         st.rerun()
@@ -1370,7 +1441,7 @@ def main():
                 st.session_state['ls_loaded'] = True
                 st.rerun() 
         
-        # 🚀 2. 방문자 수 로드 (추가)
+        # 🚀 2. 방문자 수 로드
         if HAS_LS and not st.session_state['ls_visitor_loaded']:
             stored_visitor = localS.getItem("max_total_visitor")
             if stored_visitor is not None:
@@ -1387,7 +1458,7 @@ def main():
                 localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
             st.session_state['needs_ls_save'] = False
             
-        # 🚀 4. 방문자 수 저장 (추가)
+        # 🚀 4. 방문자 수 저장
         if st.session_state.get('needs_ls_visitor_save', False):
             if HAS_LS:
                 localS.setItem("max_total_visitor", str(st.session_state['max_total_visitor']))
