@@ -6,6 +6,7 @@ import streamlit as st
 from PIL import Image
 import concurrent.futures
 import plotly.express as px  
+import streamlit.components.v1 as components 
 from datetime import datetime 
 
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
@@ -77,14 +78,31 @@ if os.path.exists(title_icon_path):
 def run_home_app():
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # st.components.v1.html 대신 최신 st.html 사용
+    # 🚀 JS 애니메이션 실행을 위해 다시 components.html로 복구
     lottie_html = """
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-    <div style="display: flex; justify-content: center; align-items: center; height: 260px;">
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                background-color: transparent !important;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                overflow: hidden;
+            }
+        </style>
+    </head>
+    <body>
         <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_w6dptksf.json" background="transparent" speed="1" style="width: 250px; height: 250px;" loop autoplay></lottie-player>
-    </div>
+    </body>
+    </html>
     """
-    st.html(lottie_html)
+    components.html(lottie_html, height=260)
 
     st.markdown("""
     <div style="text-align: center; padding: 0 0 40px 0;">
@@ -329,7 +347,7 @@ def run_real_estate_app():
                             color_continuous_scale="Reds", 
                             template="plotly_white"
                         )
-                        # 🔥 툴팁 비활성화 적용
+                        # 🔥 툴팁 비활성화
                         fig2.update_traces(texttemplate='%{text}%', textposition='outside', hovertemplate=None, hoverinfo='skip')
                         fig2.update_layout(
                             height=350, 
@@ -339,8 +357,8 @@ def run_real_estate_app():
                             yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
                             dragmode=False 
                         ) 
-                        # 🚀 use_container_width=True를 width="stretch"로 교체
-                        st.plotly_chart(fig2, width="stretch", config={'displayModeBar': False})
+                        # 🔥 staticPlot 적용으로 차트 고정
+                        st.plotly_chart(fig2, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
 
                         for i in range(min(5, len(merged))):
                             row = merged.iloc[i]
@@ -414,7 +432,6 @@ def run_real_estate_app():
                     dragmode=False,
                     hovermode='x'
                 )
-                # 🚀 use_container_width=True를 width="stretch"로 교체
                 st.plotly_chart(fig, width="stretch", config={
                     'displayModeBar': False, 
                     'scrollZoom': False,
@@ -660,16 +677,16 @@ def run_capital_gains_tax_app():
     st.caption("금액, 보유 기간뿐만 아니라 **규제지역 여부, 주택 수, 공동명의** 조건도 자유롭게 변경하며 세금 변화를 체감해 보세요.")
 
     with st.container(border=True):
-        s_col1, s_col2 = st.columns([1, 2])
+        # 🚀 모바일에서 차트가 먼저 보이도록 열 배치 비율을 [1.2, 1]로 설정 (차트가 좌측)
+        s_col1, s_col2 = st.columns([1.2, 1])
         
-        with s_col1:
+        # 🚀 우측 열(모바일에서는 하단)에 컨트롤 패널 먼저 정의
+        with s_col2:
             st.markdown("**[시뮬레이션 변수 조절]**")
-            # 매도가, 매수가 범위를 50억(500,000만원)까지 대폭 확장
             sim_sell = st.slider("매도가 (만원)", min_value=1000, max_value=500000, value=int(sell_price), step=1000, key="sim_sell")
             sim_buy = st.slider("매수가 (만원)", min_value=1000, max_value=500000, value=int(buy_price), step=1000, key="sim_buy")
             sim_hold = st.slider("보유 기간 (년)", min_value=0.0, max_value=20.0, value=float(holding_period), step=0.5, key="sim_hold")
             
-            # 거주 기간은 보유 기간을 넘을 수 없도록 동적 최대값 설정
             max_res = max(0.5, float(sim_hold))
             default_res = min(float(residence_period), max_res)
             sim_res = st.slider("거주 기간 (년)", min_value=0.0, max_value=max_res, value=default_res, step=0.5, key="sim_res")
@@ -682,17 +699,14 @@ def run_capital_gains_tax_app():
             sim_reg_buy = c_reg1.checkbox("매수 당시 규제", value=is_reg_buy, key="sim_reg_buy")
             sim_reg_sell = c_reg2.checkbox("매도 당시 규제", value=is_reg_sell, key="sim_reg_sell")
 
-        with s_col2:
-            # 실시간 계산 함수 호출
+        # 🚀 좌측 열(모바일에서는 상단)에 차트 그리기
+        with s_col1:
             gain_s, _, deduct_amt_s, tax_base_s, _, total_tax_s, _, d_rate_s = calculate_capital_gains_tax(
                 sim_sell, sim_buy, expenses, sim_hold, sim_res, sim_homes, sim_reg_buy, sim_reg_sell, is_suspension, sim_joint
             )
             
-            # 🚀 너무 커서 차트를 압도하던 '총 양도차익'을 그래프에서 빼고 위에 텍스트로 따로 배치
             st.markdown(f"##### 💰 예상 총 양도차익: **<span style='color:#ea580c;'>{int(gain_s/10000):,}</span>** 만 원", unsafe_allow_html=True)
-            st.caption("차트 스케일을 위해 '양도차익'은 상단에 표시하고, 아래 그래프에는 차감되는 세부 항목들을 시각화했습니다.")
             
-            # 그래프를 위해 필요경비, 기본공제 변환 (원 단위)
             expenses_won = expenses * 10000
             basic_ded_won = 5000000 if sim_joint else 2500000
             
@@ -706,33 +720,32 @@ def run_capital_gains_tax_app():
                 f"{int(total_tax_s/10000):,}만"
             ]
             
-            # 실시간 업데이트되는 Plotly 차트 렌더링
             fig = px.bar(
                 x=x_labels,
                 y=y_values,
                 text=text_values,
                 color=x_labels,
-                color_discrete_sequence=["#94a3b8", "#a855f7", "#10b981", "#3b82f6", "#dc2626"] # 항목별 직관적인 색상 배치
+                color_discrete_sequence=["#94a3b8", "#a855f7", "#10b981", "#3b82f6", "#dc2626"] 
             )
             
-            # 🔥 툴팁 비활성화 적용
+            # 🔥 툴팁 비활성화
             fig.update_traces(textposition='outside', textfont_size=13, hovertemplate=None, hoverinfo='skip')
             
-            # 동적인 Y축 설정 (차트가 이쁘게 그려지도록 여백 확보)
             max_y = max(y_values) if max(y_values) > 0 else 10000
             
             fig.update_layout(
-                title=f"💡 [시뮬레이션] 예상 양도세: <span style='color:#dc2626; font-size:20px;'>{int(total_tax_s):,} 원</span> (장특공제 {d_rate_s*100:.0f}%)",
+                title=f"💡 예상 양도세: <span style='color:#dc2626; font-size:20px;'>{int(total_tax_s):,} 원</span> (장특공제 {d_rate_s*100:.0f}%)",
                 showlegend=False,
-                height=300,
+                height=350, # 차트 높이 약간 키움
                 yaxis_title="",
                 xaxis_title="",
-                yaxis=dict(showticklabels=False, range=[0, max_y * 1.3]), # 라벨이 잘리지 않도록 공간 확보
+                yaxis=dict(showticklabels=False, range=[0, max_y * 1.3]), 
                 margin=dict(t=50, b=20, l=0, r=0),
-                plot_bgcolor="rgba(0,0,0,0)"
+                plot_bgcolor="rgba(0,0,0,0)",
+                dragmode=False # 드래그 금지
             )
-            # 🚀 use_container_width=True를 width="stretch"로 교체
-            st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
+            # 🔥 staticPlot=True 옵션으로 차트를 고정 이미지처럼 만들어서 화면 찌그러짐 원천 차단!
+            st.plotly_chart(fig, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
 
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📝 1세대 1주택 비과세 핵심 요건"):
@@ -1068,8 +1081,8 @@ def run_favorite_analysis_app():
             }, 150); 
         </script>
         """
-        # st.components.v1.html 대신 최신 st.html 사용
-        st.html(close_js)
+        # 🚀 다시 components.html로 복구
+        components.html(close_js, height=0, width=0)
         st.session_state['collapse_sidebar'] = False
 
     fav = st.session_state['auto_run_fav']
@@ -1143,7 +1156,6 @@ def run_favorite_analysis_app():
                     yaxis=dict(title="", fixedrange=True),
                     dragmode=False
                 )
-                # 🚀 use_container_width=True를 width="stretch"로 교체
                 st.plotly_chart(fig, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
                 
                 max_val = int(df_filtered['num_price'].max())
@@ -1335,8 +1347,8 @@ def main():
         observer.observe(doc.body, { childList: true, subtree: true });
     </script>
     """
-    # st.components.v1.html 대신 최신 st.html 사용
-    st.html(disable_keyboard_js)
+    # 🚀 다시 components.html로 복구
+    components.html(disable_keyboard_js, height=0, width=0)
 
     st.markdown(f"<h1 style='text-align: center; color: #1E3A8A;'>{title_icon_html}집스탯 (ZipStat) PRO V2.1</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #555555;'>실거래가 분석부터 최신 규제 반영 자금조달까지 원클릭으로!</p>", unsafe_allow_html=True)
@@ -1375,7 +1387,6 @@ def main():
             for idx, fav in enumerate(f_list):
                 c1, c2 = st.columns([8, 2]) 
                 with c1:
-                    # 🚀 use_container_width=True를 width="stretch"로 교체
                     if st.button(f"📊 {fav['apt']} ({fav['dong']})", key=f"fbtn_view_{idx}", width="stretch"):
                         st.session_state['auto_run_fav'] = fav
                         st.session_state['collapse_sidebar'] = True 
