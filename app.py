@@ -673,7 +673,7 @@ def run_capital_gains_tax_app():
 
     # 🚀 2. 실시간 시뮬레이터(샌드박스) 섹션
     st.markdown("---")
-    st.markdown("### 🎮 실시간 양도세 시뮬레이터 (Sandbox)")
+    st.markdown("### 🎮 실시간 양도세 시뮬레이터")
     st.caption("금액, 보유 기간뿐만 아니라 **규제지역 여부, 주택 수, 공동명의** 조건도 자유롭게 변경하며 세금 변화를 체감해 보세요.")
 
     with st.container(border=True):
