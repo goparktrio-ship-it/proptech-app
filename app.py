@@ -564,7 +564,7 @@ def run_capital_gains_tax_app():
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("#### 🏢 1. 거래 금액 및 기간")
+        st.markdown("#### 🏢 1. 거래 금액 ")
         sell_price = st.number_input("**매도 금액 (양도가액, 만원)**", min_value=1000, value=150000, step=1000)
         buy_price = st.number_input("**매수 금액 (취득가액, 만원)**", min_value=1000, value=80000, step=1000)
         expenses = st.number_input("**필요경비 (중개보수, 수리비 등, 만원)**", min_value=0, value=2000, step=100)
