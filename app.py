@@ -9,6 +9,10 @@ import plotly.express as px
 import streamlit.components.v1 as components 
 from datetime import datetime 
 
+# 🚀 구글 시트 연동 라이브러리 추가
+import gspread
+from google.oauth2.service_account import Credentials
+
 # 🚀 [모듈화] 백엔드 엔진에서 변수 및 계산 함수 모두 불러오기
 from engine import *
 
@@ -39,20 +43,13 @@ try:
 except ImportError:
     HAS_LS = False
 
-# 🚀 [세션 상태 추가] 관심 단지 외에 방문자 수 백업용 변수 추가
+# 🚀 [세션 상태 추가] 관심 단지 상태 유지
 if 'fav_apts' not in st.session_state:
     st.session_state['fav_apts'] = []
 if 'ls_loaded' not in st.session_state:
     st.session_state['ls_loaded'] = False
 if 'needs_ls_save' not in st.session_state:
     st.session_state['needs_ls_save'] = False
-
-if 'max_total_visitor' not in st.session_state:
-    st.session_state['max_total_visitor'] = 0
-if 'ls_visitor_loaded' not in st.session_state:
-    st.session_state['ls_visitor_loaded'] = False
-if 'needs_ls_visitor_save' not in st.session_state:
-    st.session_state['needs_ls_visitor_save'] = False
 
 if "DATA_API_KEY" in st.secrets:
     SERVICE_KEY = st.secrets["DATA_API_KEY"]
@@ -72,13 +69,65 @@ if os.path.exists(title_icon_path):
     title_icon_html = f'<img src="data:image/png;base64,{encoded_string}" style="height: 45px; width: auto; vertical-align: middle; margin-right: 8px; margin-bottom: 8px;">'
 
 # ==========================================
+# 🚀 구글 스프레드시트 기반 데이터베이스 로직
+# ==========================================
+# 1. 에러를 숨기지 않는 인증 함수 (디버깅용 구조 유지)
+@st.cache_resource
+def init_gsheets():
+    """구글 시트 인증 및 클라이언트 연결"""
+    scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+
+# 2. 방문자 카운터 함수
+def track_visitors():
+    """방문자 카운팅 및 시트 동기화"""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    try:
+        client = init_gsheets()
+        
+        # 'ZipStat_Visitor' 스프레드시트 열기
+        sheet = client.open("ZipStat_Visitor").sheet1
+        
+        # 시트 데이터 읽기 (A2:날짜, B2:총합, C2:오늘)
+        vals = sheet.row_values(2)
+        saved_date = vals[0] if len(vals) > 0 else ""
+        saved_total = int(vals[1]) if len(vals) > 1 else 0
+        saved_daily = int(vals[2]) if len(vals) > 2 else 0
+
+        # 새로고침/접속 시 1회만 카운트 증가
+        if 'visited_today' not in st.session_state:
+            st.session_state['visited_today'] = True
+            
+            new_total = saved_total + 1
+            if saved_date == today_str:
+                new_daily = saved_daily + 1
+            else:
+                new_daily = 1 # 날짜 변경 시 초기화
+                sheet.update_acell('A2', today_str)
+            
+            # 시트에 결과 반영
+            sheet.update_acell('B2', new_total)
+            sheet.update_acell('C2', new_daily)
+            return new_total, new_daily
+        else:
+            return saved_total, saved_daily
+            
+    except Exception as e:
+        # 💡 배포 후 에러 메시지가 사용자에게 보이는 게 싫다면 이 줄을 주석 처리하시면 됩니다.
+        st.error(f"🚨 에러 원인 파악: {e}")
+        return 0, 0
+
+# ==========================================
 # 1. 화면 구성 (앱 0: 홈 화면)
 # ==========================================
 @st.fragment
 def run_home_app():
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🚀 JS 애니메이션 실행을 위해 다시 components.html로 복구
+    # 🚀 JS 애니메이션 실행
     lottie_html = """
     <!DOCTYPE html>
     <html>
@@ -1421,19 +1470,10 @@ def main():
         
         st.markdown("---")
         
-        # 🚀 [수정] 방문자 수 로컬 스토리지 비교 로직 적용
-        server_total, daily = update_and_get_visitor_count()
-        local_max = st.session_state.get('max_total_visitor', 0)
-        
-        # 서버에서 받아온 값과 로컬에 저장되어 있던 값 중 더 큰 숫자를 화면에 표시
-        display_total = max(server_total, local_max)
-        
-        # 화면에 보여줄 값이 로컬 저장된 값보다 크면 갱신 예약
-        if display_total > local_max:
-            st.session_state['max_total_visitor'] = display_total
-            st.session_state['needs_ls_visitor_save'] = True
+        # 🚀 [수정] 구글 스프레드시트 방문자 수 연동
+        server_total, daily = track_visitors()
 
-        st.markdown(f"<div style='text-align: center; color: #888; font-size: 13px;'>👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {display_total} 명</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align: center; color: #888; font-size: 13px;'>👁️ <b>오늘 방문:</b> {daily} 명 &nbsp;|&nbsp; <b>총 방문:</b> {server_total} 명</div>", unsafe_allow_html=True)
         st.markdown("<br><br><div style='text-align: center; color: #aaaaaa; font-size: 11px;'>© 2026 ZipStat PRO.<br>All rights reserved.<br><br>👨‍💻 Developed by <b>[sweetourzip@naver.com]</b></div>", unsafe_allow_html=True)
 
     # ---------------------------------------------------------
@@ -1452,28 +1492,11 @@ def main():
                 st.session_state['ls_loaded'] = True
                 st.rerun() 
         
-        # 🚀 2. 방문자 수 로드
-        if HAS_LS and not st.session_state['ls_visitor_loaded']:
-            stored_visitor = localS.getItem("max_total_visitor")
-            if stored_visitor is not None:
-                try:
-                    st.session_state['max_total_visitor'] = int(stored_visitor)
-                except:
-                    pass
-                st.session_state['ls_visitor_loaded'] = True
-                st.rerun()
-
         # 3. 관심 단지 저장
         if st.session_state.get('needs_ls_save', False):
             if HAS_LS:
                 localS.setItem("fav_apts", json.dumps(st.session_state['fav_apts']))
             st.session_state['needs_ls_save'] = False
-            
-        # 🚀 4. 방문자 수 저장
-        if st.session_state.get('needs_ls_visitor_save', False):
-            if HAS_LS:
-                localS.setItem("max_total_visitor", str(st.session_state['max_total_visitor']))
-            st.session_state['needs_ls_visitor_save'] = False
 
 if __name__ == "__main__":
     main()
