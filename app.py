@@ -166,10 +166,11 @@ def run_home_app():
     st.markdown("---")
     st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>🚀 핵심 기능 가이드</h3>", unsafe_allow_html=True)
 
+    # 🚀 id 추가 및 cursor: pointer 적용
     r1_col1, r1_col2 = st.columns(2)
     with r1_col1:
         st.markdown("""
-        <div class="feature-card">
+        <div class="feature-card" id="card-1" style="cursor: pointer;">
             <div class="feature-icon">🔍</div>
             <div class="feature-title">1. 실거래가 및 전세가율 분석</div>
             <div class="feature-desc">매매 실거래가, 전세가 및 과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 전세가율(실투자금)상위 아파트를 클릭 한 번으로!!!</div>
@@ -177,7 +178,7 @@ def run_home_app():
         """, unsafe_allow_html=True)
     with r1_col2:
         st.markdown("""
-        <div class="feature-card">
+        <div class="feature-card" id="card-2" style="cursor: pointer;">
             <div class="feature-icon">💰</div>
             <div class="feature-title">2. 취득세 및 연간 보유세 계산</div>
             <div class="feature-desc">2026년 최신 세법 적용! 규제지역에 따른 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출!!!</div>
@@ -187,7 +188,7 @@ def run_home_app():
     r2_col1, r2_col2 = st.columns(2)
     with r2_col1:
         st.markdown("""
-        <div class="feature-card">
+        <div class="feature-card" id="card-3" style="cursor: pointer;">
             <div class="feature-icon">📈</div>
             <div class="feature-title">3. 양도소득세 정밀 계산</div>
             <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부, 장기보유특별공제까지 계산!!!</div>
@@ -195,7 +196,7 @@ def run_home_app():
         """, unsafe_allow_html=True)
     with r2_col2:
         st.markdown("""
-        <div class="feature-card">
+        <div class="feature-card" id="card-4" style="cursor: pointer;">
             <div class="feature-icon">🏦</div>
             <div class="feature-title">4. 맞춤형 자금조달 및 대출 컨설팅</div>
             <div class="feature-desc">최신 규제를 적용한 스트레스 DSR 주택담보대출 한도와 전세자금대출 및 정책자금 대상 여부 확인!!!</div>
@@ -203,6 +204,40 @@ def run_home_app():
         """, unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
+
+    # 🚀 카드 클릭 시 상단 탭 클릭 + '무조건' 화면 맨 위로 올리는 자바스크립트
+    click_js = """
+    <script>
+        setTimeout(function() {
+            const doc = window.parent.document;
+            const tabs = doc.querySelectorAll('button[data-baseweb="tab"]');
+            const tabContainer = doc.querySelector('div[data-baseweb="tab-list"]'); 
+            
+            const cards = [
+                { id: 'card-1', tabIndex: 1 },
+                { id: 'card-2', tabIndex: 2 },
+                { id: 'card-3', tabIndex: 3 },
+                { id: 'card-4', tabIndex: 4 }
+            ];
+            
+            cards.forEach(cardInfo => {
+                const el = doc.getElementById(cardInfo.id);
+                if (el && tabs.length > cardInfo.tabIndex) {
+                    el.onclick = function() { 
+                        // 1. 탭 클릭
+                        tabs[cardInfo.tabIndex].click(); 
+                        
+                        // 2. 브라우저 네이티브 기능으로 '탭 메뉴'를 화면 최상단으로 강제 스크롤!
+                        if (tabContainer) {
+                            tabContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    };
+                }
+            });
+        }, 800); 
+    </script>
+    """
+    components.html(click_js, height=0, width=0)
 
 # ==========================================
 # 2. 화면 구성 (앱 1: 실거래가)
