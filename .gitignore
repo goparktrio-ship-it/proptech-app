@@ -1,0 +1,4 @@
+# 구글 인증키 및 비밀정보 업로드 방지
+.streamlit/
+*.json
+__pycache__/
