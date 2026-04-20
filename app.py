@@ -627,9 +627,9 @@ def run_tax_app():
             c1.metric("🏠 재산세(지방교육세 등 포함)", f"{int(total_prop_tax/10000):,} 만원")
             c2.metric("🏦 종부세(농어촌특별세 포함)", f"{int(total_comp_tax/10000):,} 만원")
             
-            # 🚀 [업데이트] 막대 그래프 + 캔버스 테두리 유지 + 배경 투명화
+            # 🚀 [업데이트] 막대 그래프 + 캔버스 테두리 유지 + 배경 투명화 + 모바일 최적화(라벨 내장)
             chart_data = pd.DataFrame({
-                '세목': ['재산세', '종합부동산세'],
+                '세목': ['재산세', '종부세'], # 종합부동산세 -> 종부세 축약
                 '금액': [total_prop_tax/10000, total_comp_tax/10000]
             })
             
@@ -647,41 +647,44 @@ def run_tax_app():
                 )
                 
                 fig.update_traces(
-                    texttemplate='%{text:,.0f} 만원', 
+                    texttemplate='<b>%{y}</b> | %{text:,.0f} 만원', # 글자를 바 안으로 배치
                     textposition='auto', 
-                    insidetextfont=dict(color='white'),
+                    insidetextanchor='start', # 바 내부에서 왼쪽 정렬
+                    insidetextfont=dict(color='white', size=14),
+                    outsidetextfont=dict(color='#475569', size=14), # 밖으로 밀려날 경우의 색상
                     hovertemplate=None, 
                     hoverinfo='skip'
                 )
                 
                 fig.update_layout(
                     title="📊 세목별 부담액 비교",
-                    height=250, 
+                    height=200, # 바 높이도 모바일에 맞게 살짝 컴팩트하게 조정
                     margin=dict(l=10, r=20, t=50, b=20), 
                     showlegend=False,
                     dragmode=False,
-                    plot_bgcolor="rgba(0,0,0,0)", # 배경색 투명하게 처리 (다크모드 완벽 지원)
-                    paper_bgcolor="rgba(0,0,0,0)", # 캔버스 영역 밖도 투명하게 처리
+                    plot_bgcolor="rgba(0,0,0,0)", 
+                    paper_bgcolor="rgba(0,0,0,0)", 
                     xaxis=dict(
                         title="금액 (만원)", 
-                        showticklabels=True, # 하단 눈금 표시
-                        showgrid=True,       # 세로 격자선 표시
-                        gridcolor='#E2E8F0', # 격자선 색상
+                        showticklabels=True, 
+                        showgrid=True,       
+                        gridcolor='#E2E8F0', 
                         zeroline=True, 
                         zerolinecolor='#CBD5E1',
-                        showline=True,       # 축 라인 표시
-                        linecolor='#94A3B8', # 축 라인 색상
+                        showline=True,       
+                        linecolor='#94A3B8', 
                         linewidth=1,
-                        mirror=True,         # 상하좌우 테두리 모두 표시 (캔버스 박스)
+                        mirror=True,         
                         fixedrange=True
                     ),
                     yaxis=dict(
                         title="", 
+                        showticklabels=False, # 🚀 핵심: Y축 텍스트 라벨 숨김 (공간 100% 확보)
                         showgrid=False, 
                         showline=True,
                         linecolor='#94A3B8',
                         linewidth=1,
-                        mirror=True,         # 상하좌우 테두리 모두 표시 (캔버스 박스)
+                        mirror=True,         
                         fixedrange=True
                     )
                 )
@@ -1126,7 +1129,7 @@ def run_loan_simulator_app():
                             "name": "SGI 서울보증보험 전세대출",
                             "limit": f"최대 {int(actual_sgi_limit):,}만 원",
                             "condition": "보증금 상한선 제한 없음 (수도권 7억 초과 고가 아파트도 가능)",
-                            "advantage": "정부나 HUG 보증이 불가능한 고가 주택이나, 대출 한도가 더 많이 필요한 경우 활용할 수 있는 가장 강력 단 민간 보증 상품입니다."
+                            "advantage": "정부나 HUG 보증이 불가능한 고가 주택이나, 대출 한도가 더 많이 필요한 경우 활용할 수 있는 가장 강력한 민간 보증 상품입니다."
                         })
                 elif len(recommended_loans) == 0:
                      recommended_loans.append({
