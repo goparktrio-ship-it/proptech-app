@@ -71,7 +71,6 @@ if os.path.exists(title_icon_path):
 # ==========================================
 # 🚀 구글 스프레드시트 기반 데이터베이스 로직
 # ==========================================
-# 1. 에러를 숨기지 않는 인증 함수 (디버깅용 구조 유지)
 @st.cache_resource
 def init_gsheets():
     """구글 시트 인증 및 클라이언트 연결"""
@@ -80,24 +79,19 @@ def init_gsheets():
     client = gspread.authorize(creds)
     return client
 
-# 2. 방문자 카운터 함수
 def track_visitors():
     """방문자 카운팅 및 시트 동기화"""
     today_str = datetime.now().strftime("%Y-%m-%d")
     
     try:
         client = init_gsheets()
-        
-        # 'ZipStat_Visitor' 스프레드시트 열기
         sheet = client.open("ZipStat_Visitor").sheet1
         
-        # 시트 데이터 읽기 (A2:날짜, B2:총합, C2:오늘)
         vals = sheet.row_values(2)
         saved_date = vals[0] if len(vals) > 0 else ""
         saved_total = int(vals[1]) if len(vals) > 1 else 0
         saved_daily = int(vals[2]) if len(vals) > 2 else 0
 
-        # 새로고침/접속 시 1회만 카운트 증가
         if 'visited_today' not in st.session_state:
             st.session_state['visited_today'] = True
             
@@ -105,10 +99,9 @@ def track_visitors():
             if saved_date == today_str:
                 new_daily = saved_daily + 1
             else:
-                new_daily = 1 # 날짜 변경 시 초기화
+                new_daily = 1 
                 sheet.update_acell('A2', today_str)
             
-            # 시트에 결과 반영
             sheet.update_acell('B2', new_total)
             sheet.update_acell('C2', new_daily)
             return new_total, new_daily
@@ -116,7 +109,6 @@ def track_visitors():
             return saved_total, saved_daily
             
     except Exception as e:
-        # 💡 배포 후 에러 메시지가 사용자에게 보이는 게 싫다면 이 줄을 주석 처리하시면 됩니다.
         st.error(f"🚨 에러 원인 파악: {e}")
         return 0, 0
 
@@ -127,23 +119,13 @@ def track_visitors():
 def run_home_app():
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🚀 JS 애니메이션 실행
     lottie_html = """
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
         <style>
-            html, body {
-                margin: 0;
-                padding: 0;
-                background-color: transparent !important;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                overflow: hidden;
-            }
+            html, body { margin: 0; padding: 0; background-color: transparent !important; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
         </style>
     </head>
     <body>
@@ -166,46 +148,20 @@ def run_home_app():
     st.markdown("---")
     st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>🚀 핵심 기능 가이드</h3>", unsafe_allow_html=True)
 
-    # 🚀 id 추가 및 cursor: pointer 적용
     r1_col1, r1_col2 = st.columns(2)
     with r1_col1:
-        st.markdown("""
-        <div class="feature-card" id="card-1" style="cursor: pointer;">
-            <div class="feature-icon">🔍</div>
-            <div class="feature-title">1. 실거래가 및 전세가율 분석</div>
-            <div class="feature-desc">매매 실거래가, 전세가 및 과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 전세가율(실투자금)상위 아파트를 클릭 한 번으로!!!</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="feature-card" id="card-1" style="cursor: pointer;"><div class="feature-icon">🔍</div><div class="feature-title">1. 실거래가 및 전세가율 분석</div><div class="feature-desc">매매 실거래가, 전세가 및 과거 1년 치 시세 트렌드와 최고가/최저가, 그리고 전세가율(실투자금)상위 아파트를 클릭 한 번으로!!!</div></div>', unsafe_allow_html=True)
     with r1_col2:
-        st.markdown("""
-        <div class="feature-card" id="card-2" style="cursor: pointer;">
-            <div class="feature-icon">💰</div>
-            <div class="feature-title">2. 취득세 및 연간 보유세 계산</div>
-            <div class="feature-desc">2026년 최신 세법 적용! 규제지역에 따른 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출!!!</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="feature-card" id="card-2" style="cursor: pointer;"><div class="feature-icon">💰</div><div class="feature-title">2. 취득세 및 연간 보유세 계산</div><div class="feature-desc">2026년 최신 세법 적용! 규제지역에 따른 다주택자 중과세율, 부부 공동명의 혜택까지 반영하여 취득세와 재산세/종부세를 산출!!!</div></div>', unsafe_allow_html=True)
 
     r2_col1, r2_col2 = st.columns(2)
     with r2_col1:
-        st.markdown("""
-        <div class="feature-card" id="card-3" style="cursor: pointer;">
-            <div class="feature-icon">📈</div>
-            <div class="feature-title">3. 양도소득세 정밀 계산</div>
-            <div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부, 장기보유특별공제까지 계산!!!</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="feature-card" id="card-3" style="cursor: pointer;"><div class="feature-icon">📈</div><div class="feature-title">3. 양도소득세 정밀 계산</div><div class="feature-desc">매수/매도 시점의 규제지역(핀셋 규제 포함) 여부를 자동 판독하여 비과세 및 다주택자 중과 여부, 장기보유특별공제까지 계산!!!</div></div>', unsafe_allow_html=True)
     with r2_col2:
-        st.markdown("""
-        <div class="feature-card" id="card-4" style="cursor: pointer;">
-            <div class="feature-icon">🏦</div>
-            <div class="feature-title">4. 맞춤형 자금조달 및 대출 컨설팅</div>
-            <div class="feature-desc">최신 규제를 적용한 스트레스 DSR 주택담보대출 한도와 전세자금대출 및 정책자금 대상 여부 확인!!!</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="feature-card" id="card-4" style="cursor: pointer;"><div class="feature-icon">🏦</div><div class="feature-title">4. 맞춤형 자금조달 및 대출 컨설팅</div><div class="feature-desc">최신 규제를 적용한 스트레스 DSR 주택담보대출 한도와 전세자금대출 및 정책자금 대상 여부 확인!!!</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
 
-    # 🚀 카드 클릭 시 상단 탭 클릭 + '무조건' 화면 맨 위로 올리는 자바스크립트
     click_js = """
     <script>
         setTimeout(function() {
@@ -214,23 +170,16 @@ def run_home_app():
             const tabContainer = doc.querySelector('div[data-baseweb="tab-list"]'); 
             
             const cards = [
-                { id: 'card-1', tabIndex: 1 },
-                { id: 'card-2', tabIndex: 2 },
-                { id: 'card-3', tabIndex: 3 },
-                { id: 'card-4', tabIndex: 4 }
+                { id: 'card-1', tabIndex: 1 }, { id: 'card-2', tabIndex: 2 },
+                { id: 'card-3', tabIndex: 3 }, { id: 'card-4', tabIndex: 4 }
             ];
             
             cards.forEach(cardInfo => {
                 const el = doc.getElementById(cardInfo.id);
                 if (el && tabs.length > cardInfo.tabIndex) {
                     el.onclick = function() { 
-                        // 1. 탭 클릭
                         tabs[cardInfo.tabIndex].click(); 
-                        
-                        // 2. 브라우저 네이티브 기능으로 '탭 메뉴'를 화면 최상단으로 강제 스크롤!
-                        if (tabContainer) {
-                            tabContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
+                        if (tabContainer) { tabContainer.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
                     };
                 }
             });
@@ -245,7 +194,6 @@ def run_home_app():
 @st.fragment 
 def run_real_estate_app():
     st.subheader("🏠 실거래가/전세가율")
-    
     fav_list = st.session_state['fav_apts']
         
     st.markdown("#### 🔍 검색 조건 설정")
@@ -295,8 +243,7 @@ def run_real_estate_app():
             
             def fetch_month_data(ym):
                 df, _ = fetch_real_estate_data("매매", lawd_cd, ym, SERVICE_KEY)
-                if not df.empty:
-                    df['조회년월'] = ym
+                if not df.empty: df['조회년월'] = ym
                 return df
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
@@ -304,8 +251,7 @@ def run_real_estate_app():
                 completed_count = 0
                 for future in concurrent.futures.as_completed(futures):
                     df = future.result()
-                    if not df.empty:
-                        all_data.append(df)
+                    if not df.empty: all_data.append(df)
                     completed_count += 1
                     my_bar.progress(completed_count / 12, text=f"{selected_gu} 데이터 병렬 수집 완료... ({completed_count}/12)")
             
@@ -323,7 +269,6 @@ def run_real_estate_app():
         
         if info['mode'] == '단순조회' and 'data' in st.session_state:
             df = st.session_state['data'].copy()
-            
             if info['cat'] == "매매":
                 target_cols = ['umdNm', 'aptNm', 'dealAmount', 'excluUseAr', 'floor', 'dealDay'] 
                 exist_cols = [c for c in target_cols if c in df.columns]
@@ -335,10 +280,8 @@ def run_real_estate_app():
                 df = df[exist_cols].rename(columns={'umdNm': '법정동', 'aptNm': '아파트명', 'deposit': '보증금(만원)', 'monthlyRent': '월세(만원)', 'excluUseAr': '면적(㎡)', 'floor': '층', 'dealDay': '일'})
                 price_col = '보증금(만원)' 
 
-            if '면적(㎡)' in df.columns:
-                df['면적(㎡)'] = pd.to_numeric(df['면적(㎡)'], errors='coerce')
-            if '층' in df.columns:
-                df['층'] = pd.to_numeric(df['층'], errors='coerce')
+            if '면적(㎡)' in df.columns: df['면적(㎡)'] = pd.to_numeric(df['면적(㎡)'], errors='coerce')
+            if '층' in df.columns: df['층'] = pd.to_numeric(df['층'], errors='coerce')
             for col in ['매매가(만원)', '보증금(만원)', '월세(만원)']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '').str.replace(' ', ''), errors='coerce')
@@ -350,14 +293,12 @@ def run_real_estate_app():
             with f_col1:
                 dong_list = sorted(df['법정동'].dropna().unique().tolist())
                 selected_dong = st.selectbox("**1. '동' 선택**", ["전체보기"] + dong_list)
-                if selected_dong != "전체보기":
-                    df = df[df['법정동'] == selected_dong]
+                if selected_dong != "전체보기": df = df[df['법정동'] == selected_dong]
 
             with f_col2:
                 apt_list = sorted(df['아파트명'].dropna().unique().tolist())
                 selected_apt = st.selectbox("**2. '아파트(단지)' 선택**", ["전체보기"] + apt_list)
-                if selected_apt != "전체보기":
-                    df = df[df['아파트명'] == selected_apt]
+                if selected_apt != "전체보기": df = df[df['아파트명'] == selected_apt]
             
             if selected_apt != "전체보기" and selected_dong != "전체보기":
                 is_fav = any(f['apt'] == selected_apt and f['dong'] == selected_dong for f in fav_list)
@@ -422,26 +363,19 @@ def run_real_estate_app():
 
                     if not merged.empty:
                         top_10_df = merged.head(10)
-                        
                         fig2 = px.bar(
                             top_10_df, x='아파트명', y='전세가율(%)',
                             title=f"🔥 전세가율(실투자금) TOP 10 단지", 
-                            text='전세가율(%)', 
-                            color='전세가율(%)', 
-                            color_continuous_scale="Reds", 
-                            template="plotly_white"
+                            text='전세가율(%)', color='전세가율(%)', 
+                            color_continuous_scale="Reds", template="plotly_white"
                         )
-                        # 🔥 툴팁 비활성화
                         fig2.update_traces(texttemplate='%{text}%', textposition='outside', hovertemplate=None, hoverinfo='skip')
                         fig2.update_layout(
-                            height=350, 
-                            margin=dict(l=0, r=0, t=40, b=0), 
+                            height=350, margin=dict(l=0, r=0, t=40, b=0), 
                             xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), 
                             yaxis=dict(title="", showticklabels=False, fixedrange=True), 
-                            yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100],
-                            dragmode=False 
+                            yaxis_range=[max(0, top_10_df['전세가율(%)'].min()-10), 100], dragmode=False 
                         ) 
-                        # 🔥 staticPlot 적용으로 차트 고정
                         st.plotly_chart(fig2, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
 
                         for i in range(min(5, len(merged))):
@@ -496,32 +430,23 @@ def run_real_estate_app():
 
             if not df_filtered.empty:
                 trend_df = df_filtered.groupby('조회년월')['num_price'].mean().reset_index()
-                
                 fig = px.line(
                     trend_df, x='조회년월', y='num_price', markers=True,
                     title=f"📅 {sel_apt}<br><span style='font-size:14px;'>({sel_area}㎡) 최근 1년 시세 흐름</span>",
-                    template="plotly_white",
-                    labels={'조회년월': '거래월', 'num_price': '평균 매매가(만원)'} 
+                    template="plotly_white", labels={'조회년월': '거래월', 'num_price': '평균 매매가(만원)'} 
                 )
                 fig.update_traces(
                     line_color="#1E3A8A", line_width=3, marker_size=8,
                     hovertemplate="<b>%{x}</b><br>매매가: %{y:,}만 원<extra></extra>"
                 )
                 fig.update_layout(
-                    height=300, 
-                    margin=dict(l=0, r=0, t=50, b=0), 
+                    height=300, margin=dict(l=0, r=0, t=50, b=0), 
                     xaxis=dict(title="", tickangle=-45, tickfont=dict(size=10), fixedrange=True), 
                     yaxis=dict(title="", tickfont=dict(size=10), fixedrange=True), 
-                    title_font_size=16,
-                    dragmode=False,
-                    hovermode='x'
+                    title_font_size=16, dragmode=False, hovermode='x'
                 )
                 st.plotly_chart(fig, width="stretch", config={
-                    'displayModeBar': False, 
-                    'scrollZoom': False,
-                    'doubleClick': False,
-                    'showTips': False,
-                    'staticPlot': True 
+                    'displayModeBar': False, 'scrollZoom': False, 'doubleClick': False, 'showTips': False, 'staticPlot': True 
                 })
                 
                 max_val = int(df_filtered['num_price'].max())
@@ -537,104 +462,218 @@ def run_real_estate_app():
                 st.dataframe(display_df, width="stretch", hide_index=True)
 
 # ==========================================
-# 3. 화면 구성 (앱 2: 취득세/보유세)
+# 3. 화면 구성 (앱 2: 취득세 및 초정밀 보유세 시뮬레이터)
 # ==========================================
 @st.fragment 
 def run_tax_app():
-    st.subheader("💰 취득세/보유세 계산")
-    st.info("📌 **적용 기준: 2026년 최신 세법 기준 (재산세/종부세 포함)**")
+    st.subheader("💰 취득세 및 초정밀 보유세 시뮬레이터")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("#### 🏢 1. 매수할 물건 정보")
-        selected_area = st.selectbox("**어느 지역의 아파트를 매수하시나요?**", ALL_AREAS)
-        is_regulated = selected_area in REGULATED_AREAS
-        price_input = st.number_input("**매매가 (만원 단위)**", min_value=1000, value=80000, step=1000)
-        is_large = st.checkbox("전용면적 85㎡ 초과 (농특세 부과)")
-
-    with col2:
-        st.markdown("#### 👤 2. 매수자 명의 및 주택 수")
-        homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
-        
-        with st.expander("❓ 내 주택수 정확히 세는 법 (취득세 기준)"):
-            st.markdown(f"""{DETAIL_STYLE}
-            <ul style='margin-top: 0; padding-left: 20px;'>
-                <li><b>1세대:</b> 등본상 가족 (배우자/미혼 30세 미만 자녀 포함)</li>
-                <li><b>분양권/입주권:</b> '20. 8. 12. 이후 취득분부터 포함</li>
-                <li><b>주거용 오피스텔:</b> '20. 8. 12. 이후 취득분부터 포함 (시가 1억 이하 제외)</li>
-                <li><b>제외:</b> 시가표준액 1억 이하 주택, 농어촌 주택 등</li>
-            </ul>
-            </div>""", unsafe_allow_html=True)
-            
-        is_joint = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        if is_joint and homes_count == "1주택":
-            st.info("💡 공동명의 1주택: 각자 9억씩 총 **18억 원의 종부세 기본공제** 혜택 적용")
-        if is_regulated:
-            st.error(f"🚨 **{selected_area}**는 조정대상지역입니다.")
-        else:
-            st.success(f"✅ **{selected_area}**는 비규제지역입니다.")
-
+    tax_mode = st.radio("어떤 세금을 계산해볼까요?", ["🏢 취득세 (매수 시)", "🏠 보유세 시뮬레이터 (매년)"], horizontal=True)
     st.markdown("---")
-    default_official_price = int(price_input * 0.7)
-    
-    with st.expander("⚙️ 상세 설정 (공시가격 직접 수정)"):
-        use_manual = st.checkbox("**☑️ 정확한 공시가격을 직접 입력하겠습니다.**")
-        if use_manual:
-            official_price_input = st.number_input("**정확한 공시가격 (만원 단위)**", min_value=100, value=default_official_price, step=1000)
-        else:
-            official_price_input = default_official_price
-            st.write(f"현재 자동 추정된 공시가격: **{official_price_input:,}만 원**")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("세금 정밀 계산하기 🚀", width="stretch", key="btn_tax", type="primary"):
-        st.toast("✅ 세금 정밀 계산 완료!", icon="💰") 
-        
-        acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
-        off_p_won, prop_p_won, comp_p_won = calculate_holding_tax(official_price_input, homes_count, is_joint)
-        
-        st.markdown("---")
-        st.markdown("#### 📊 1. 예상 취득세 결과")
-        if final_rate > base_rate:
-            st.error(f"🚨 **적용 본세율:** {final_rate * 100:.1f}% **(다주택 중과세율 적용)**") 
-        else:
-            st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**") 
+    if tax_mode == "🏢 취득세 (매수 시)":
+        st.info("📌 **적용 기준: 2026년 최신 세법 기준 (취득세)**")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### 🏢 1. 매수할 물건 정보")
+            selected_area = st.selectbox("**어느 지역의 아파트를 매수하시나요?**", ALL_AREAS)
+            is_regulated = selected_area in REGULATED_AREAS
+            price_input = st.number_input("**매매가 (만원 단위)**", min_value=1000, value=80000, step=1000)
+            is_large = st.checkbox("전용면적 85㎡ 초과 (농특세 부과)")
+
+        with col2:
+            st.markdown("#### 👤 2. 매수자 명의 및 주택 수")
+            homes_count = st.selectbox("**취득 후 총 주택 수**", ["1주택", "일시적 2주택", "2주택", "3주택", "4주택 이상 (법인 포함)"])
             
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 취득세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(acq_tax):,} 원</span>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 지방교육세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(edu_tax):,} 원</span>", unsafe_allow_html=True)
-        with c3: st.markdown(f"<span style='font-size: 14px; color: #555;'>③ 농특세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(rural_tax):,} 원</span>", unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div style="background-color: #fef9c3; padding: 20px; border-radius: 15px; border-left: 10px solid #facc15; margin-top: 15px;">
-            <p style="margin: 0; color: #854d0e; font-weight: bold;">💸 총 납부 예상 취득세</p>
-            <h2 style="margin: 0; color: #ca8a04; font-size: 2.2rem;">{int(total_tax):,} 원</h2>
-        </div>
-        """, unsafe_allow_html=True)
+            with st.expander("❓ 내 주택수 정확히 세는 법 (취득세 기준)"):
+                st.markdown(f"""{DETAIL_STYLE}
+                <ul style='margin-top: 0; padding-left: 20px;'>
+                    <li><b>1세대:</b> 등본상 가족 (배우자/미혼 30세 미만 자녀 포함)</li>
+                    <li><b>분양권/입주권:</b> '20. 8. 12. 이후 취득분부터 포함</li>
+                    <li><b>주거용 오피스텔:</b> '20. 8. 12. 이후 취득분부터 포함 (시가 1억 이하 제외)</li>
+                    <li><b>제외:</b> 시가표준액 1억 이하 주택, 농어촌 주택 등</li>
+                </ul>
+                </div>""", unsafe_allow_html=True)
+                
+            is_joint = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if is_regulated:
+                st.error(f"🚨 **{selected_area}**는 조정대상지역입니다.")
+            else:
+                st.success(f"✅ **{selected_area}**는 비규제지역입니다.")
 
-        st.markdown("---")
-        st.markdown("#### 📊 2. 예상 연간 보유세 결과")
-        h1, h2, h3 = st.columns(3)
-        with h1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 재산세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(prop_p_won):,} 원</span>", unsafe_allow_html=True)
-        with h2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 종부세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(comp_p_won):,} 원</span>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("취득세 계산하기 🚀", width="stretch", key="btn_tax", type="primary"):
+            st.toast("✅ 취득세 계산 완료!", icon="💰") 
+            
+            acq_tax, edu_tax, rural_tax, total_tax, final_rate, base_rate = calculate_acquisition_tax(price_input, is_large, homes_count, is_regulated)
+            
+            st.markdown("---")
+            st.markdown("#### 📊 취득세 산출 결과")
+            if final_rate > base_rate:
+                st.error(f"🚨 **적용 본세율:** {final_rate * 100:.1f}% **(다주택 중과세율 적용)**") 
+            else:
+                st.success(f"✅ **적용 본세율:** {final_rate * 100:.1f}% **(기본세율 적용)**") 
+                
+            c1, c2, c3 = st.columns(3)
+            with c1: st.markdown(f"<span style='font-size: 14px; color: #555;'>① 취득세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(acq_tax):,} 원</span>", unsafe_allow_html=True)
+            with c2: st.markdown(f"<span style='font-size: 14px; color: #555;'>② 지방교육세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(edu_tax):,} 원</span>", unsafe_allow_html=True)
+            with c3: st.markdown(f"<span style='font-size: 14px; color: #555;'>③ 농특세</span><br><span style='font-size: 18px; font-weight: bold;'>{int(rural_tax):,} 원</span>", unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <div style="background-color: #fef9c3; padding: 20px; border-radius: 15px; border-left: 10px solid #facc15; margin-top: 15px;">
+                <p style="margin: 0; color: #854d0e; font-weight: bold;">💸 총 납부 예상 취득세</p>
+                <h2 style="margin: 0; color: #ca8a04; font-size: 2.2rem;">{int(total_tax):,} 원</h2>
+            </div>
+            """, unsafe_allow_html=True)
+
+    else:
+        # 🚀 초정밀 보유세 시뮬레이터 로직
+        st.info("💡 **2026년 최신 세법 및 공정시장가액/세액공제 로직**이 완벽하게 반영된 시뮬레이터입니다.")
         
-        st.markdown(f"""
-        <div style="background-color: #fee2e2; padding: 20px; border-radius: 15px; border-left: 10px solid #ef4444; margin-top: 15px;">
-            <p style="margin: 0; color: #991b1b; font-weight: bold;">💸 매년 납부 예상 총 보유세</p>
-            <h2 style="margin: 0; color: #dc2626; font-size: 2.2rem;">{int(prop_p_won + comp_p_won):,} 원</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        s_col1, s_col2 = st.columns([1, 1.2])
+        
+        with s_col1:
+            st.markdown("#### ⚙️ 기본 자산 정보 (공시가 추정)")
+            sim_market_price = st.number_input("💰 예상 시세(매매가) 합산액 (만원)", min_value=1000, value=150000, step=1000)
+            sim_realization_rate = st.slider("📈 공시가격 현실화율 (%)", 50, 100, 69)
+            
+            # 매매가와 현실화율을 통해 공시가격을 자동 추정
+            default_off_price = int(sim_market_price * (sim_realization_rate / 100))
+            
+            use_manual_off_price = st.checkbox("☑️ 정확한 공시가격을 직접 입력하겠습니다.")
+            if use_manual_off_price:
+                sim_off_price = st.number_input("정확한 공시가격 합산액 (만원)", min_value=1000, value=default_off_price, step=1000)
+            else:
+                sim_off_price = default_off_price
+                st.success(f"👉 자동 산출된 공시가격: **{sim_off_price:,}만 원**")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("#### 👤 보유 주택 및 명의 설정")
+            sim_homes = st.selectbox("🏠 보유 주택 수", ["1주택", "2주택", "3주택 이상"], index=0)
+            
+            is_joint_sim = False
+            age_deduct = 0.0
+            hold_deduct = 0.0
+            
+            if sim_homes == "1주택":
+                is_joint_sim = st.checkbox("🤝 부부 공동명의 (각 9억씩 총 18억 공제)")
+                with st.expander("🛡️ 1주택 단독명의 전용 세액공제 (최대 80%)", expanded=not is_joint_sim):
+                    if is_joint_sim:
+                        st.warning("⚠️ 부부 공동명의(18억 공제) 선택 시 고령자/장기보유 세액공제는 중복 적용되지 않습니다. (단독명의 또는 특례 신청 시에만 적용)")
+                    else:
+                        age_opt = st.selectbox("연령 (고령자 공제)", ["만 60세 미만 (0%)", "만 60~64세 (20%)", "만 65~69세 (30%)", "만 70세 이상 (40%)"])
+                        age_map = {"만 60세 미만 (0%)": 0.0, "만 60~64세 (20%)": 0.2, "만 65~69세 (30%)": 0.3, "만 70세 이상 (40%)": 0.4}
+                        age_deduct = age_map[age_opt]
+                        
+                        hold_opt = st.selectbox("보유 기간 (장기보유 공제)", ["5년 미만 (0%)", "5~9년 (20%)", "10~14년 (40%)", "15년 이상 (50%)"])
+                        hold_map = {"5년 미만 (0%)": 0.0, "5~9년 (20%)": 0.2, "10~14년 (40%)": 0.4, "15년 이상 (50%)": 0.5}
+                        hold_deduct = hold_map[hold_opt]
+            
+            with st.expander("📊 정책 및 한도 변수 (Advanced)"):
+                fmr_prop = st.slider("재산세 공정시장가액비율 (%)", 40, 100, 45 if sim_homes == "1주택" else 60)
+                fmr_comp = st.slider("종부세 공정시장가액비율 (%)", 60, 100, 60)
+                prev_tax = st.number_input("전년도 기납부 총 보유세 (만원)", value=0, step=10)
+                ceiling_rate = st.selectbox("세부담상한율 (%)", [105, 110, 130, 150], index=3)
+
+        with s_col2:
+            # 1. 재산세 계산
+            prop_base = sim_off_price * (fmr_prop / 100)
+            if prop_base <= 6000: p_tax = prop_base * 0.001
+            elif prop_base <= 15000: p_tax = 6 + (prop_base-6000) * 0.0015
+            elif prop_base <= 30000: p_tax = 19.5 + (prop_base-15000) * 0.0025
+            else: p_tax = 57 + (prop_base-30000) * 0.004
+            
+            total_prop_tax = p_tax * 1.2 * 10000 
+            
+            # 2. 종부세 계산
+            deduct_base = 90000
+            if sim_homes == "1주택":
+                deduct_base = 180000 if is_joint_sim else 120000
+            
+            comp_base = max(0, sim_off_price - deduct_base) * (fmr_comp / 100)
+            comp_rate = 0.015 if sim_homes == "3주택 이상" else 0.008
+            
+            raw_comp_tax = comp_base * comp_rate
+            
+            final_deduct_rate = 0.0
+            if sim_homes == "1주택" and not is_joint_sim:
+                final_deduct_rate = min(0.8, age_deduct + hold_deduct)
+            
+            comp_tax_after_deduct = raw_comp_tax * (1 - final_deduct_rate)
+            total_comp_tax = comp_tax_after_deduct * 1.2 * 10000 
+            
+            # 3. 세부담상한 계산
+            current_total = total_prop_tax + total_comp_tax
+            is_capped = False
+            original_total = current_total
+            if prev_tax > 0:
+                limit = (prev_tax * 10000) * (ceiling_rate / 100)
+                if current_total > limit:
+                    current_total = limit
+                    is_capped = True
+            
+            # 시각화 영역
+            st.markdown(f"""
+            <div style="background-color: #F8FAFC; padding: 25px; border-radius: 20px; border: 1px solid #E2E8F0; text-align: center;">
+                <p style="margin: 0; color: #64748B; font-weight: bold; font-size: 16px;">💸 최종 산출 매년 예상 보유세</p>
+                <h1 style="margin: 10px 0; color: #1E3A8A; font-size: 3rem;">{int(current_total/10000):,} 만원</h1>
+                {f'<p style="color: #EF4444; font-size: 13px; font-weight: bold;">⚠️ 세부담상한 {ceiling_rate}%가 적용되어 세액이 감면되었습니다! (원래 세액: {int(original_total/10000):,}만 원)</p>' if is_capped else ''}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            c1, c2 = st.columns(2)
+            c1.metric("🏠 재산세(지방교육세 등 포함)", f"{int(total_prop_tax/10000):,} 만원")
+            c2.metric("🏦 종부세(농어촌특별세 포함)", f"{int(total_comp_tax/10000):,} 만원")
+            
+            # 🚀 [업데이트] 막대 그래프로 차트 변경
+            chart_data = pd.DataFrame({
+                '세목': ['재산세', '종합부동산세'],
+                '금액': [total_prop_tax/10000, total_comp_tax/10000]
+            })
+            
+            if total_prop_tax == 0 and total_comp_tax == 0:
+                st.info("납부할 세액이 없습니다.")
+            else:
+                fig = px.bar(
+                    chart_data, 
+                    x='금액', 
+                    y='세목', 
+                    orientation='h', 
+                    color='세목',
+                    color_discrete_sequence=['#3B82F6', '#EF4444'],
+                    text='금액'
+                )
+                
+                fig.update_traces(
+                    texttemplate='%{text:,.0f} 만원', 
+                    textposition='auto', 
+                    insidetextfont=dict(color='white'),
+                    hovertemplate=None, 
+                    hoverinfo='skip'
+                )
+                
+                fig.update_layout(
+                    title="📊 세목별 부담액 비교 (가로형 막대)",
+                    height=220, 
+                    margin=dict(l=0, r=20, t=40, b=0), 
+                    showlegend=False,
+                    xaxis=dict(title="", showticklabels=False, fixedrange=True),
+                    yaxis=dict(title="", fixedrange=True),
+                    dragmode=False,
+                    plot_bgcolor="rgba(0,0,0,0)"
+                )
+                
+                st.plotly_chart(fig, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
 
     st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander("📝 산출 기준 요약 안내"):
+    with st.expander("📝 보유세 절세 꿀팁"):
         st.markdown(f"""{DETAIL_STYLE}
         <ul style='margin-top: 0; padding-left: 20px;'>
-            <li><b>다주택 중과:</b> 2주택(조정 8%), 3주택(조정 12%, 비조정 8%), 4주택 이상(12%)</li>
-            <li><b>공시가격:</b> 입력 없으면 매매가의 70% 추정</li>
-            <li><b>종부세 공제:</b> 단독 12억, 부부공동 18억, 다주택 9억</li>
-            <li><b>재산세/종부세 비율:</b> 재산세(43~60%), 종부세(60%) 및 1주택 특례세율 반영</li>
-            <li><b>세부담상한:</b> 전년도 세액 부재로 상한선 미적용(MAX 산출)</li>
+            <li><b>6월 1일:</b> 보유세 과세 기준일입니다. 매도할 계획이라면 6/1 이전에, 매수할 계획이라면 6/1 이후에 잔금을 치르는 것이 유리합니다.</li>
+            <li><b>1주택 공동명의:</b> 공시가격이 약 12억~15억을 넘어서는 시점부터는 단독명의보다 부부 공동명의가 종부세 측면에서 월등히 유리해집니다.</li>
+            <li><b>고령자/장기보유:</b> 단독명의 1주택자라면 나이가 들수록, 오래 살수록 세금이 최대 80%까지 줄어드니 이사 전에 반드시 체크하세요.</li>
         </ul>
         </div>""", unsafe_allow_html=True)
 
