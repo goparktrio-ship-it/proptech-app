@@ -530,7 +530,7 @@ def run_tax_app():
 
     else:
         # 🚀 초정밀 보유세 시뮬레이터 로직
-        st.info("💡 **2026년 최신 세법 및 공정시장가액/세액공제 로직**이 반영된 시뮬레이터")
+        st.info("💡 **2026년 최신 세법 및 공정시장가액/세액공제 로직**이 완벽하게 반영된 시뮬레이터입니다.")
         
         s_col1, s_col2 = st.columns([1, 1.2])
         
@@ -542,7 +542,7 @@ def run_tax_app():
             # 매매가와 현실화율을 통해 공시가격을 자동 추정
             default_off_price = int(sim_market_price * (sim_realization_rate / 100))
             
-            use_manual_off_price = st.checkbox("☑️ 정확한 공시가격을 직접 입력")
+            use_manual_off_price = st.checkbox("☑️ 정확한 공시가격을 직접 입력하겠습니다.")
             if use_manual_off_price:
                 sim_off_price = st.number_input("정확한 공시가격 합산액 (만원)", min_value=1000, value=default_off_price, step=1000)
             else:
@@ -627,7 +627,7 @@ def run_tax_app():
             c1.metric("🏠 재산세(지방교육세 등 포함)", f"{int(total_prop_tax/10000):,} 만원")
             c2.metric("🏦 종부세(농어촌특별세 포함)", f"{int(total_comp_tax/10000):,} 만원")
             
-            # 🚀 [업데이트] 막대 그래프로 차트 변경
+            # 🚀 [업데이트] 막대 그래프 + 캔버스 테두리 유지 + 배경 투명화
             chart_data = pd.DataFrame({
                 '세목': ['재산세', '종합부동산세'],
                 '금액': [total_prop_tax/10000, total_comp_tax/10000]
@@ -655,14 +655,35 @@ def run_tax_app():
                 )
                 
                 fig.update_layout(
-                    title="📊 세목별 부담액 비교 (가로형 막대)",
-                    height=220, 
-                    margin=dict(l=0, r=20, t=40, b=0), 
+                    title="📊 세목별 부담액 비교",
+                    height=250, 
+                    margin=dict(l=10, r=20, t=50, b=20), 
                     showlegend=False,
-                    xaxis=dict(title="", showticklabels=False, fixedrange=True),
-                    yaxis=dict(title="", fixedrange=True),
                     dragmode=False,
-                    plot_bgcolor="rgba(0,0,0,0)"
+                    plot_bgcolor="rgba(0,0,0,0)", # 배경색 투명하게 처리 (다크모드 완벽 지원)
+                    paper_bgcolor="rgba(0,0,0,0)", # 캔버스 영역 밖도 투명하게 처리
+                    xaxis=dict(
+                        title="금액 (만원)", 
+                        showticklabels=True, # 하단 눈금 표시
+                        showgrid=True,       # 세로 격자선 표시
+                        gridcolor='#E2E8F0', # 격자선 색상
+                        zeroline=True, 
+                        zerolinecolor='#CBD5E1',
+                        showline=True,       # 축 라인 표시
+                        linecolor='#94A3B8', # 축 라인 색상
+                        linewidth=1,
+                        mirror=True,         # 상하좌우 테두리 모두 표시 (캔버스 박스)
+                        fixedrange=True
+                    ),
+                    yaxis=dict(
+                        title="", 
+                        showgrid=False, 
+                        showline=True,
+                        linecolor='#94A3B8',
+                        linewidth=1,
+                        mirror=True,         # 상하좌우 테두리 모두 표시 (캔버스 박스)
+                        fixedrange=True
+                    )
                 )
                 
                 st.plotly_chart(fig, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
@@ -851,11 +872,11 @@ def run_capital_gains_tax_app():
                 color_discrete_sequence=["#94a3b8", "#a855f7", "#10b981", "#3b82f6", "#dc2626"] 
             )
             
-            # 🔥 툴팁 비활성화
             fig.update_traces(textposition='outside', textfont_size=13, hovertemplate=None, hoverinfo='skip')
             
             max_y = max(y_values) if max(y_values) > 0 else 10000
             
+            # 🚀 [업데이트] 양도세 차트 디자인 원상복구 (테두리 및 격자 제거)
             fig.update_layout(
                 title=f"💡 예상 양도세: <span style='color:#dc2626; font-size:20px;'>{int(total_tax_s):,} 원</span> (장특공제 {d_rate_s*100:.0f}%)",
                 showlegend=False,
@@ -867,7 +888,7 @@ def run_capital_gains_tax_app():
                 plot_bgcolor="rgba(0,0,0,0)",
                 dragmode=False # 드래그 금지
             )
-            # 🔥 staticPlot=True 옵션으로 차트를 고정 이미지처럼 만들어서 화면 찌그러짐 원천 차단!
+            
             st.plotly_chart(fig, width="stretch", config={'displayModeBar': False, 'staticPlot': True})
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1105,7 +1126,7 @@ def run_loan_simulator_app():
                             "name": "SGI 서울보증보험 전세대출",
                             "limit": f"최대 {int(actual_sgi_limit):,}만 원",
                             "condition": "보증금 상한선 제한 없음 (수도권 7억 초과 고가 아파트도 가능)",
-                            "advantage": "정부나 HUG 보증이 불가능한 고가 주택이나, 대출 한도가 더 많이 필요한 경우 활용할 수 있는 가장 강력한 민간 보증 상품입니다."
+                            "advantage": "정부나 HUG 보증이 불가능한 고가 주택이나, 대출 한도가 더 많이 필요한 경우 활용할 수 있는 가장 강력 단 민간 보증 상품입니다."
                         })
                 elif len(recommended_loans) == 0:
                      recommended_loans.append({
