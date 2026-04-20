@@ -495,8 +495,6 @@ def run_tax_app():
                 </ul>
                 </div>""", unsafe_allow_html=True)
                 
-            is_joint = st.checkbox("🤝 **부부 공동명의 (지분 50:50)**")
-            
             st.markdown("<br>", unsafe_allow_html=True)
             if is_regulated:
                 st.error(f"🚨 **{selected_area}**는 조정대상지역입니다.")
