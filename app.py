@@ -530,7 +530,7 @@ def run_tax_app():
 
     else:
         # 🚀 초정밀 보유세 시뮬레이터 로직
-        st.info("💡 **2026년 최신 세법 및 공정시장가액/세액공제 로직**이 완벽하게 반영된 시뮬레이터입니다.")
+        st.info("💡 **2026년 최신 세법 및 공정시장가액/세액공제 로직**이 반영된 시뮬레이터")
         
         s_col1, s_col2 = st.columns([1, 1.2])
         
@@ -542,7 +542,7 @@ def run_tax_app():
             # 매매가와 현실화율을 통해 공시가격을 자동 추정
             default_off_price = int(sim_market_price * (sim_realization_rate / 100))
             
-            use_manual_off_price = st.checkbox("☑️ 정확한 공시가격을 직접 입력하겠습니다.")
+            use_manual_off_price = st.checkbox("☑️ 정확한 공시가격을 직접 입력")
             if use_manual_off_price:
                 sim_off_price = st.number_input("정확한 공시가격 합산액 (만원)", min_value=1000, value=default_off_price, step=1000)
             else:
