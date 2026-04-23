@@ -989,7 +989,7 @@ def run_loan_simulator_app():
             if required_loan == 0:
                 st.success("보유 현금이 충분하여 대출이 필요하지 않습니다! 🎉")
             elif current_homes == "2주택 이상" and is_regulated_loan:
-                st.error("🚨 **대출 불가!** 다주택자는 규제지역 내에서 주택 취득 목적의 주담대를 받을 수 정밀 분석을 제공할 수 없습니다. (LTV 0%)")
+                st.error("🚨 **대출 불가!** 다주택자는 규제지역 내에서 주택 취득 목적의 주담대를 받을 수 없습니다. (LTV 0%)")
             else:
                 policy_matches = check_policy_loan_eligibility(ltv_base_price, annual_income, is_married, has_newborn, is_capital_area, is_first_time)
                 if policy_matches:
@@ -998,8 +998,10 @@ def run_loan_simulator_app():
                     for idx, p in enumerate(policy_matches):
                         p_cols[idx].info(f"**{p['name']}**\n\n예상 금리: {p['rate']}\n{p['limit']}\n\n*{p['desc']}*")
                 
+                # 1. LTV 기준 최대 한도 계산
                 max_loan_by_ltv, applied_ratio, applied_cap = get_max_mortgage_ltv(is_regulated_loan, is_capital_area, is_first_time, ltv_base_price, current_homes)
                 
+                # 기존 채무 상환액 산출
                 annual_repay_existing = 0
                 if not is_move_loan:
                     annual_repay_existing += (debt_credit + debt_minus) / 5 
@@ -1007,32 +1009,68 @@ def run_loan_simulator_app():
                     annual_repay_existing += (debt_etc_monthly * 12)
                 
                 stress_rate = 3.0 if (is_regulated_loan or is_capital_area) else 1.2
-                stress_monthly_pmt_won, _ = calculate_loan_payment(required_loan, interest_rate + stress_rate, loan_years, is_interest_only=False)
-                actual_dsr = ((stress_monthly_pmt_won/10000 * 12) + annual_repay_existing) / annual_income
                 dsr_limit = 0.40
                 
-                st.markdown("#### 📊 1. 매매대출 일반 심사 결과")
+                # 2. DSR 기준 최대 대출 가능액 역산 (app.py 자체 로직 처리)
+                r_stress = (interest_rate + stress_rate) / 100 / 12
+                n_months = loan_years * 12
+                max_annual_pmt_for_new_loan = (annual_income * dsr_limit) - annual_repay_existing
+                
+                if max_annual_pmt_for_new_loan <= 0:
+                    max_loan_by_dsr = 0
+                else:
+                    max_monthly_pmt_won = (max_annual_pmt_for_new_loan / 12) * 10000
+                    if r_stress > 0:
+                        max_loan_by_dsr_won = max_monthly_pmt_won * (1 - (1 + r_stress)**-n_months) / r_stress
+                    else:
+                        max_loan_by_dsr_won = max_monthly_pmt_won * n_months
+                    max_loan_by_dsr = max_loan_by_dsr_won / 10000
+
+                # 3. 최종 대출 가능 한도 도출 및 필요 금액 심사
+                final_max_possible_loan = min(max_loan_by_ltv, max_loan_by_dsr)
+                actual_approved_loan = min(required_loan, final_max_possible_loan)
+                
+                stress_monthly_pmt_won, _ = calculate_loan_payment(required_loan, interest_rate + stress_rate, loan_years, is_interest_only=False)
+                actual_dsr = ((stress_monthly_pmt_won/10000 * 12) + annual_repay_existing) / annual_income
+
+                # ==========================================
+                # UI 출력: 1. 주택담보대출 정밀 심사 결과
+                # ==========================================
+                st.markdown("#### 📊 1. 주택담보대출 정밀 심사 결과 (최종 한도 도출)")
+                
+                st.markdown(f"""
+                <div style="background-color: #F8FAFC; padding: 20px; border-radius: 15px; border: 1px solid #E2E8F0; text-align: center; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #64748B; font-weight: bold; font-size: 15px;">✅ 최종 산출된 최대 대출 가능액 (LTV, 스트레스 DSR, 캡 규제 완벽 교차 적용)</p>
+                    <h1 style="margin: 10px 0; color: #1E3A8A; font-size: 2.5rem;">{int(final_max_possible_loan):,} 만원</h1>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 cap_text = f"{int(applied_cap):,}만 원" if applied_cap != float('inf') else "제한 없음"
-                st.info(f"💡 **적용된 LTV 기준:** 집값의 **{applied_ratio*100:.0f}%** (최대한도 캡: **{cap_text}**)")
                 
                 c1, c2 = st.columns(2)
-                if required_loan > max_loan_by_ltv:
-                    c1.error(f"🚨 **LTV 한도 초과!**\n\n최대 가능 대출액: **{int(max_loan_by_ltv):,}만 원**") 
-                else:
-                    c1.success(f"✅ **LTV 통과**\n\n최대 한도 {int(max_loan_by_ltv):,}만 원 이내로 안전권입니다.") 
-                    
-                if actual_dsr > dsr_limit:
-                    c2.error(f"🚨 **스트레스 DSR 40% 한도 초과!**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)") 
-                else:
-                    c2.success(f"✅ **스트레스 DSR 통과 (안정권)**\n\n예상 DSR: **{actual_dsr*100:.1f}%** (가산금리 +{stress_rate}%p 적용)") 
+                c1.info(f"💡 **LTV 및 캡(Cap) 심사**\n\n- 적용 LTV: **{applied_ratio*100:.0f}%**\n- 최대한도 캡: **{cap_text}**\n- LTV 기준 최대액: **{int(max_loan_by_ltv):,}만 원**")
+                
+                dsr_status = "통과" if actual_dsr <= dsr_limit else "한도 초과"
+                c2.info(f"💡 **스트레스 DSR 심사 (40% 기준)**\n\n- 적용 가산금리: **+{stress_rate}%p**\n- 신청 시 예상 DSR: **{actual_dsr*100:.1f}% ({dsr_status})**\n- DSR 기준 최대액: **{int(max_loan_by_dsr):,}만 원**")
 
+                if required_loan > final_max_possible_loan:
+                    shortfall = required_loan - final_max_possible_loan
+                    st.error(f"🚨 **대출 한도 부족!** 신청하신 필요 금액({int(required_loan):,}만 원)보다 승인 한도가 낮습니다. **{int(shortfall):,}만 원**의 현금을 더 확보해야 합니다.")
+                else:
+                    st.success(f"🎉 **대출 승인 가능!** 필요하신 {int(required_loan):,}만 원이 여유 있게 한도 내에 들어옵니다.")
+
+                # ==========================================
+                # UI 출력: 2. 자금조달 및 실제 상환액 브리핑
+                # ==========================================
                 st.markdown("---")
-                st.markdown("#### 💸 2. 자금조달 및 실제 월 상환액 브리팅")
-                monthly_pmt_won, total_interest_won = calculate_loan_payment(required_loan, interest_rate, loan_years, is_interest_only=False)
+                st.markdown(f"#### 💸 2. 자금조달 및 실제 월 상환액 브리핑 (최종 실행액 **{int(actual_approved_loan):,}만 원** 기준)")
+                
+                monthly_pmt_won, total_interest_won = calculate_loan_payment(actual_approved_loan, interest_rate, loan_years, is_interest_only=False)
+                actual_cash_needed = prop_price - actual_approved_loan
                 
                 r1, r2, r3 = st.columns(3)
-                with r1: st.markdown(f"<span style='font-size: 14px; color: #555;'>필요 초기 자금</span><br><span style='font-size: 18px; font-weight: bold;'>{int(cash_on_hand):,} 만원</span>", unsafe_allow_html=True)
-                with r2: st.markdown(f"<span style='font-size: 14px; color: #555;'>신규 대출 원금</span><br><span style='font-size: 18px; font-weight: bold;'>{int(required_loan):,} 만원</span>", unsafe_allow_html=True)
+                with r1: st.markdown(f"<span style='font-size: 14px; color: #555;'>필요 초기 자금</span><br><span style='font-size: 18px; font-weight: bold;'>{int(actual_cash_needed):,} 만원</span>", unsafe_allow_html=True)
+                with r2: st.markdown(f"<span style='font-size: 14px; color: #555;'>실제 대출 실행액</span><br><span style='font-size: 18px; font-weight: bold;'>{int(actual_approved_loan):,} 만원</span>", unsafe_allow_html=True)
                 with r3: st.markdown(f"<span style='font-size: 14px; color: #555;'>총 이자액 ({loan_years}년)</span><br><span style='font-size: 18px; font-weight: bold;'>{int(total_interest_won/10000):,} 만원</span>", unsafe_allow_html=True)
                 
                 total_monthly_out = monthly_pmt_won + (debt_etc_monthly * 10000)
